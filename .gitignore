@@ -1,0 +1,6 @@
+build_clang_analyzer
+build_debug
+build_release
+dnsbalancer.conf
+*~
+*.swp
