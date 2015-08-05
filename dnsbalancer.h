@@ -68,6 +68,14 @@
 #define DB_DEFAULT_FORWARDER_CHECK_ATTEMPTS	3
 #define DB_DEFAULT_FORWARDER_CHECK_TIMEOUT	500
 #define DB_DEFAULT_WEIGHT					1
+#define DB_1_SEC_NS							(1000LL * 1000 * 1000)
+#define DB_1_MIN_S							(60LL)
+#define DB_5_MINS_S							(5 * DB_1_MIN_S)
+#define DB_15_MINS_S						(15 * DB_1_MIN_S)
+#define DB_1_MIN_NS							(DB_1_MIN_S * DB_1_SEC_NS)
+#define DB_5_MINS_NS						(5 * DB_1_MIN_NS)
+#define DB_15_MINS_NS						(15 * DB_1_MIN_NS)
+#define DB_LOADAVG_ITEM_TTL					DB_15_MINS_NS
 
 typedef enum db_backend_mode
 {
@@ -153,6 +161,24 @@ typedef struct db_frontend
 	db_backend_t backend;
 	db_frontend_stats_t stats;
 } db_frontend_t;
+
+typedef struct db_loadavg
+{
+	double la_1;
+	double la_5;
+	double la_15;
+	pthread_spinlock_t la_lock;
+	int __padding1;
+} db_loadavg_t;
+
+struct db_loadavg_item
+{
+	TAILQ_ENTRY(db_loadavg_item) tailq;
+	struct timespec timestamp;
+	size_t max_collisions;
+};
+
+TAILQ_HEAD(db_loadavg_items, db_loadavg_item);
 
 #endif /* __DNSBALANCER_H__ */
 
