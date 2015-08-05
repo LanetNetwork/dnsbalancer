@@ -107,9 +107,7 @@ static uint64_t db_sockaddr_port_crc64(sa_family_t _family, void* _sockaddr)
 	return ret;
 }
 
-static inline ssize_t __db_find_alive_forwarder_by_offset(uint64_t _offset, db_backend_t* _backend) __attribute__((always_inline));
-
-static inline ssize_t __db_find_alive_forwarder_by_offset(uint64_t _offset, db_backend_t* _backend)
+__attribute__((always_inline)) static inline ssize_t __db_find_alive_forwarder_by_offset(uint64_t _offset, db_backend_t* _backend)
 {
 	ssize_t ret = -1;
 
