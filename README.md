@@ -6,6 +6,50 @@ Description
 
 Daemon to balance UDP DNS requests over DNS servers.
 
+Principles
+----------
+
+dnsbalancer daemon serves as UDP DNS load-balancing proxy between multiple
+DNS clients and several DNS servers. Here is DNS packet lifecycle:
+
+1. client creates DNS query and sends it to dnsbalancer;
+2. dnsbalancer accepts incoming UDP packet and finds appropriate backend server
+for it;
+3. then UDP packet is parsed into ldns\_pkt structure, and if it is not valid
+DNS packet, dnsbalancer silently drops it;
+4. if, otherwise, accepted UDP packet is valid DNS query, dnsbalancer extracts
+query information from it, calculates its CRC64 and stores it in internal hash
+table along with client socket information;
+5. then unmodified DNS packet is sent to selected forwarder;
+6. when the forwarder sends reply back, dnsbalancer accepts it first;
+7. then dnsbalancer parses received answer into ldns\_pkt structure, dropping
+invalid packets;
+8. to select client to forward answer to, dnsbalancer must again calculate CRC64
+of received answer and find appropriate client socket in hash table;
+9. if there is appropriate record in hash table, dnsbalancer finds it, selects
+client socket, sends answer to it and removes info about DNS packet from hash table.
+
+Meanwhile, garbage collector thread works, and if hash table contains too old records,
+they are removed periodically. Almost all the errors are silently ignored (but wisely
+handled through error paths), and statistic info is updated appropriately.
+
+Here is the list of DNS packet fields involved in CRC64 calculation:
+
+1. DNS query ID;
+2. DNS query type;
+3. DNS query class;
+4. DNS query FQDN.
+
+Also, forwarder socket number is used in CRC64 calculation as well. These 5 values
+are sufficient to connect DNS requests and replies unambiguously. If, however, CRC64
+hash collision happens, it is handled via simple linear list under separate lock. One
+may monitor hash table average load using stats served via HTTP (see below).
+
+Hash list average load is maximum hash collision domain size happened in hash table,
+averaged withing 1, 5 and 15 minutes. The lower value is, the better (1.00 is optimal but
+not achievable, higher values indicate lock contention, lower, on the contrary, shows that
+hash table is oversized). Try to keep hash table load average under 10.00.
+
 Configuration
 -------------
 
