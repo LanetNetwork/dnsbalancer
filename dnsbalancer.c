@@ -1093,7 +1093,7 @@ int main(int argc, char** argv, char** envp)
 			char* forwarder_check_query = iniparser_getstring(config, forwarder_check_query_key, NULL);
 			if (unlikely(!forwarder_check_query))
 			{
-				verbose("Forwarder: %s\n", forwarder);
+				inform("Forwarder: %s\n", forwarder);
 				stop("No check query specified for forwarder in config file");
 			}
 			frontends[frontends_count]->backend.forwarders[frontends[frontends_count]->backend.forwarders_count]->check_query =
