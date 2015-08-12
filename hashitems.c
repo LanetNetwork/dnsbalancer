@@ -26,7 +26,7 @@ void db_push_item(db_hashlist_t* _hashlist, struct db_item* _item)
 
 	if (unlikely(pthread_mutex_lock(&_hashlist->list[db_hashitem].lock)))
 		panic("pthread_mutex_lock");
-	TAILQ_INSERT_HEAD(&_hashlist->list[db_hashitem].items, _item, tailq);
+	TAILQ_INSERT_TAIL(&_hashlist->list[db_hashitem].items, _item, tailq);
 	_hashlist->list[db_hashitem].items_count++;
 	if (unlikely(pthread_spin_lock(&_hashlist->max_collisions_lock)))
 		panic("pthread_spin_lock");
