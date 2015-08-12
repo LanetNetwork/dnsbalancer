@@ -189,7 +189,6 @@ static int db_answer_to_connection(void* _data,
 
 	int ret = MHD_NO;
 	struct MHD_Response* response = NULL;
-	char* stats = NULL;
 
 	if (unlikely(strcmp(_method, MHD_HTTP_METHOD_GET) != 0))
 	{
@@ -199,7 +198,7 @@ static int db_answer_to_connection(void* _data,
 
 	if (strcmp(_url, "/stats") == 0)
 	{
-		stats = pfcq_mstring("%s\n", "# name,FRONTEND,in_pkts,in_bytes,in_invalid_pkts,in_invalid_bytes,out_pkts,out_bytes,noerror,servfail,nxdomain,refused,other");
+		char* stats = pfcq_mstring("%s\n", "# name,FRONTEND,in_pkts,in_bytes,in_invalid_pkts,in_invalid_bytes,out_pkts,out_bytes,noerror,servfail,nxdomain,refused,other");
 		for (size_t i = 0; i < frontends_count; i++)
 		{
 			db_frontend_stats_t fe_stats = db_stats_frontend(frontends[i]);
@@ -245,6 +244,48 @@ static int db_answer_to_connection(void* _data,
 			MHD_destroy_response(response);
 		}
 		pfcq_free(stats);
+		goto out;
+	} else if (strcmp(_url, "/acls") == 0)
+	{
+		char* acls = pfcq_mstring("%s\n", "# ACLs");
+		for (size_t i = 0; i < frontends_count; i++)
+		{
+			char* row = NULL;
+			struct db_acl_item* current_acl_item = NULL;
+
+			row = pfcq_mstring("# %s,FRONTEND\n", frontends[i]->name);
+			acls = pfcq_cstring(acls, row);
+			pfcq_free(row);
+			row = pfcq_mstring("%s\n", "# layer3,address/netmask,regex,action,hits");
+			acls = pfcq_cstring(acls, row);
+			pfcq_free(row);
+
+			TAILQ_FOREACH(current_acl_item, &frontends[i]->acl, tailq)
+			{
+				if (unlikely(pthread_spin_lock(&current_acl_item->hits_lock)))
+					panic("pthread_spin_lock");
+				uint64_t hits = current_acl_item->hits;
+				if (unlikely(pthread_spin_unlock(&current_acl_item->hits_lock)))
+					panic("pthread_spin_unlock");
+				row = pfcq_mstring("%s,%s/%s,%s,%s,%lu\n", current_acl_item->s_layer3,
+						current_acl_item->s_address, current_acl_item->s_netmask,
+						current_acl_item->s_regex, current_acl_item->s_action,
+						hits);
+				acls = pfcq_cstring(acls, row);
+				pfcq_free(row);
+			}
+		}
+
+		response = MHD_create_response_from_buffer(strlen(acls), acls, MHD_RESPMEM_MUST_COPY);
+		if (unlikely(!response))
+		{
+			ret = db_queue_code(_connection, _url, MHD_HTTP_INTERNAL_SERVER_ERROR);
+		} else
+		{
+			ret = MHD_queue_response(_connection, MHD_HTTP_OK, response);
+			MHD_destroy_response(response);
+		}
+		pfcq_free(acls);
 		goto out;
 	} else
 		ret = db_queue_code(_connection, _url, MHD_HTTP_NOT_FOUND);

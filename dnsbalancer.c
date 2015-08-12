@@ -596,6 +596,54 @@ static void* db_worker(void* _data)
 						ldns_rr* client_query = ldns_rr_list_rr(client_queries, j);
 						if (likely(ldns_rr_is_question(client_query)))
 						{
+							// Check query against ACL
+							struct db_acl_item* current_acl_item = NULL;
+							db_acl_action_t query_action = DB_ACL_ACTION_ALLOW;
+							TAILQ_FOREACH(current_acl_item, &data->acl, tailq)
+							{
+								unsigned short int address_matched = 0;
+								struct in6_addr anded6;
+								switch (data->layer3)
+								{
+									case PF_INET:
+										address_matched = (address.address4.sin_addr.s_addr & current_acl_item->netmask.address4.s_addr) == current_acl_item->address.address4.s_addr;
+										break;
+									case PF_INET6:
+										for (size_t k = 0; k < 16; k++)
+										{
+											anded6.s6_addr[k] = address.address6.sin6_addr.s6_addr[k] & current_acl_item->netmask.address6.s6_addr[k];
+											address_matched = anded6.s6_addr[k] == current_acl_item->address.address6.s6_addr[k];
+											if (!address_matched)
+												break;
+										}
+										break;
+									default:
+										panic("socket domain");
+										break;
+								}
+								if (address_matched)
+								{
+									char* fqdn = ldns_rdf2str(ldns_rr_owner(client_query));
+									unsigned short regex_matched = regexec(&current_acl_item->regex, fqdn, 0, NULL, 0) == 0;
+									free(fqdn);
+									if (regex_matched)
+									{
+										query_action = current_acl_item->action;
+										if (unlikely(pthread_spin_lock(&current_acl_item->hits_lock)))
+											panic("pthread_spin_lock");
+										current_acl_item->hits++;
+										if (unlikely(pthread_spin_unlock(&current_acl_item->hits_lock)))
+											panic("pthread_spin_unlock");
+										break;
+									}
+								}
+							}
+							if (query_action == DB_ACL_ACTION_DENY)
+							{
+								ldns_pkt_free(client_query_packet);
+								goto denied;
+							}
+
 							// Make request ID from query string and DNS packet ID.
 							// CRC64 hash is used to distribute requests over hash tables,
 							// raw hash is used to select record from specific table
@@ -627,6 +675,8 @@ static void* db_worker(void* _data)
 					ssize_t send_res = send(forwarders[forwarder_index], server_buffer, query_size, 0);
 					if (likely(send_res != -1))
 						db_stats_forwarder_in(data->backend.forwarders[forwarder_index], send_res);
+denied:
+					__noop;
 				} else
 				{
 					// Accept answer from forwarder
@@ -927,6 +977,7 @@ int main(int argc, char** argv, char** envp)
 		char* frontend_backend_key = pfcq_mstring("%s:%s", frontend, "backend");
 		char* frontend_layer3_key = pfcq_mstring("%s:%s", frontend, "layer3");
 		char* frontend_bind_key = pfcq_mstring("%s:%s", frontend, "bind");
+		char* frontend_acl_key = pfcq_mstring("%s:%s", frontend, "acl");
 
 		frontends[frontends_count]->name = pfcq_strdup(frontend);
 		frontends[frontends_count]->workers = pfcq_hint_cpus((int)iniparser_getint(config, frontend_workers_key, -1));
@@ -1124,12 +1175,96 @@ int main(int argc, char** argv, char** envp)
 		pfcq_free(backend_mode_key);
 		pfcq_free(backend_forwarders_key);
 
+		char* frontend_acl = iniparser_getstring(config, frontend_acl_key, NULL);
+		if (unlikely(!frontend_acl))
+		{
+			inform("Frontend: %s\n", frontend);
+			stop("No ACL specified in config file");
+		}
+		char** acl_items = iniparser_getseckeys(config, frontend_acl);
+		if (unlikely(!acl_items))
+		{
+			inform("ACL: %s\n", frontend_acl);
+			stop("No ACLs found in config file");
+		}
+		int acl_items_count = iniparser_getsecnkeys(config, frontend_acl);
+		TAILQ_INIT(&frontends[frontends_count]->acl);
+		for (int i = 0; i < acl_items_count; i++)
+		{
+			char* acl_item_expr = iniparser_getstring(config, acl_items[i], NULL);
+			char* acl_item_expr_i = pfcq_strdup(acl_item_expr);
+			char* acl_item_expr_p = acl_item_expr_i;
+
+			char* acl_item_layer3 = strsep(&acl_item_expr, "/");
+			char* acl_item_host = strsep(&acl_item_expr, "/");
+			char* acl_item_netmask = strsep(&acl_item_expr, "/");
+			char* acl_item_regex = strsep(&acl_item_expr, "/");
+			char* acl_item_action = strsep(&acl_item_expr, "/");
+
+			struct db_acl_item* new_acl_item = pfcq_alloc(sizeof(struct db_acl_item));
+
+			new_acl_item->s_layer3 = pfcq_strdup(acl_item_layer3);
+			new_acl_item->s_address = pfcq_strdup(acl_item_host);
+			new_acl_item->s_netmask = pfcq_strdup(acl_item_netmask);
+			new_acl_item->s_regex = pfcq_strdup(acl_item_regex);
+			new_acl_item->s_action = pfcq_strdup(acl_item_action);
+			if (unlikely(pthread_spin_init(&new_acl_item->hits_lock, PTHREAD_PROCESS_PRIVATE)))
+				panic("pthread_spin_init");
+
+			if (strcmp(acl_item_layer3, DB_CONFIG_IPV4) == 0)
+				new_acl_item->layer3 = PF_INET;
+			else if (strcmp(acl_item_layer3, DB_CONFIG_IPV6) == 0)
+				new_acl_item->layer3 = PF_INET6;
+			else
+			{
+				inform("ACL: %s\n", frontend_acl);
+				stop("Unknown ACL L3 protocol specified in config file");
+			}
+			switch (new_acl_item->layer3)
+			{
+				case PF_INET:
+					if (unlikely(inet_pton(new_acl_item->layer3, acl_item_host, &new_acl_item->address.address4) == -1))
+						panic("inet_pton");
+					new_acl_item->netmask.address4.s_addr = htonl((~0UL) << (32 - strtol(acl_item_netmask, NULL, 10)));
+					break;
+				case PF_INET6:
+					if (unlikely(inet_pton(new_acl_item->layer3, acl_item_host, &new_acl_item->address.address6) == -1))
+						panic("inet_pton");
+					pfcq_zero(&new_acl_item->netmask.address6, sizeof(struct in6_addr));
+					for (long j = 0; j < strtol(acl_item_netmask, NULL, 10); j++)
+						new_acl_item->netmask.address6.s6_addr[j / 8] |= 1 << (j % 8);
+					break;
+				default:
+					panic("socket domain");
+					break;
+			}
+			if (unlikely(regcomp(&new_acl_item->regex, acl_item_regex, REG_EXTENDED)))
+			{
+				inform("ACL: %s\n", frontend_acl);
+				stop("Unable to compile regex specified in config file");
+			}
+			if (strcmp(acl_item_action, DB_CONFIG_ACL_ACTION_ALLOW) == 0)
+				new_acl_item->action = DB_ACL_ACTION_ALLOW;
+			else if (strcmp(acl_item_action, DB_CONFIG_ACL_ACTION_DENY) == 0)
+				new_acl_item->action = DB_ACL_ACTION_DENY;
+			else
+			{
+				inform("ACL: %s\n", frontend_acl);
+				stop("Invalid action specified in config file");
+			}
+			TAILQ_INSERT_TAIL(&frontends[frontends_count]->acl, new_acl_item, tailq);
+
+			pfcq_free(acl_item_expr_p);
+		}
+		free(acl_items);
+
 		pfcq_free(frontend_workers_key);
 		pfcq_free(frontend_dns_max_packet_length_key);
 		pfcq_free(frontend_port_key);
 		pfcq_free(frontend_backend_key);
 		pfcq_free(frontend_layer3_key);
 		pfcq_free(frontend_bind_key);
+		pfcq_free(frontend_acl_key);
 
 		frontends_count++;
 	}
@@ -1212,6 +1347,19 @@ int main(int argc, char** argv, char** envp)
 			panic("pthread_spin_destroy");
 		if (unlikely(pthread_spin_destroy(&frontends[i]->backend.queries_lock)))
 			panic("pthread_spin_destroy");
+		while (likely(!TAILQ_EMPTY(&frontends[i]->acl)))
+		{
+			struct db_acl_item* current_acl_item = TAILQ_FIRST(&frontends[i]->acl);
+			TAILQ_REMOVE(&frontends[i]->acl, current_acl_item, tailq);
+			pfcq_free(current_acl_item->s_layer3);
+			pfcq_free(current_acl_item->s_address);
+			pfcq_free(current_acl_item->s_netmask);
+			pfcq_free(current_acl_item->s_regex);
+			pfcq_free(current_acl_item->s_action);
+			regfree(&current_acl_item->regex);
+			pthread_spin_destroy(&current_acl_item->hits_lock);
+			pfcq_free(current_acl_item);
+		}
 	}
 	for (size_t i = 0; i < frontends_count; i++)
 		pfcq_free(frontends[i]);

@@ -23,6 +23,7 @@
 #ifndef __DNSBALANCER_H__
 #define __DNSBALANCER_H__
 
+#include <acl.h>
 #include <errno.h>
 #include <pfcq.h>
 #include <pfpthq.h>
@@ -58,6 +59,8 @@
 #define DB_CONFIG_HASH_L3					"hash_l3"
 #define DB_CONFIG_HASH_L4					"hash_l4"
 #define DB_CONFIG_LIST_SEPARATOR			","
+#define DB_CONFIG_ACL_ACTION_ALLOW			"allow"
+#define DB_CONFIG_ACL_ACTION_DENY			"deny"
 #define DB_DEFAULT_RLIMIT					32768
 #define DB_DEFAULT_HASHLIST_SIZE			1024
 #define DB_DEFAULT_HASHLIST_TTL				10000
@@ -160,6 +163,7 @@ typedef struct db_frontend
 	sa_family_t layer3;
 	db_backend_t backend;
 	db_frontend_stats_t stats;
+	struct db_acl acl;
 } db_frontend_t;
 
 typedef struct db_loadavg
