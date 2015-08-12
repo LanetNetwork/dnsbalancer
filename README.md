@@ -18,15 +18,16 @@ for it;
 3. then UDP packet is parsed into ldns\_pkt structure, and if it is not valid
 DNS packet, dnsbalancer silently drops it;
 4. if, otherwise, accepted UDP packet is valid DNS query, dnsbalancer extracts
-query information from it, calculates its CRC64 and stores it in internal hash
-table along with client socket information;
-5. then unmodified DNS packet is sent to selected forwarder;
-6. when the forwarder sends reply back, dnsbalancer accepts it first;
-7. then dnsbalancer parses received answer into ldns\_pkt structure, dropping
+query information from it and checks request against ACL;
+5. if packet passes ACL, dnsbalancer calculates its CRC64 and stores it in internal
+hash table along with client socket information;
+6. then unmodified DNS packet is sent to selected forwarder;
+7. when the forwarder sends reply back, dnsbalancer accepts it first;
+8. then dnsbalancer parses received answer into ldns\_pkt structure, dropping
 invalid packets;
-8. to select client to forward answer to, dnsbalancer must again calculate CRC64
+9. to select client to forward answer to, dnsbalancer must again calculate CRC64
 of received answer and find appropriate client socket in hash table;
-9. if there is appropriate record in hash table, dnsbalancer finds it, selects
+10. if there is appropriate record in hash table, dnsbalancer finds it, selects
 client socket, sends answer to it and removes info about DNS packet from hash table.
 
 Meanwhile, garbage collector thread works, and if hash table contains too old records,
@@ -77,6 +78,10 @@ layer3=ipv4
 bind=127.0.0.1
 port=53
 backend=be_dns
+acl=acl_1
+
+[acl_1]
+allow_all=ipv4/0.0.0.0/0/^.*$/allow
 
 [be_dns]
 mode=rr
@@ -133,7 +138,8 @@ but you may also want to specify 512 as it should work almost for all configurat
 * `layer3` specifies either IPv4 or IPv6 to use for frontend connection;
 * `bind` specifies local network interface address to bind to;
 * `port` specifies port which frontend should listen on;
-* `backend` specifies backend name.
+* `backend` specifies backend name;
+* `acl` specifies ACL to check queries to frontend against (see below).
 
 `backend_name` section holds backend-specific options:
 
@@ -166,6 +172,43 @@ however, if ping to your forwarder is high enough, consider enlarging this value
 SOA record for root zone, but it may be good idea to check SOA or A (or AAAA) of some important zone;
 * `weight` specifies relative weight of current forwarder: the more value is, the more times forwarder
 is being used (currently applies only to random selection mode).
+
+### ACLs
+
+Frontends use ACLs to check incoming queries (see ACL example above). ACLs are defined in separate
+INI sections and have the following syntax:
+
+```ini
+[acl_name]
+some_comment=layer3_protocol/netaddress/netmask/regex/action
+```
+
+That means:
+
+* `some_comment` is usually current ACL step custom name;
+* `layer3_protocol` specifies how `netaddress` and `netmask` should be interpreted (valid values are:
+`ipv4` and `ipv6`);
+* `netaddress` and `netmask` specifies hosts that are subjected to current ACL step (please note that
+network mask is specified as decimal prefix like /0 or /24);
+* `regex` is POSIX Extended Regular Expression, query FQDN is matched against it;
+* `action` is, naturally, action performed against query in question (currently valid values are:
+`allow`, `deny`).
+
+ACL is examined step-by-step. Also ACLs may be used to mangle queries in future, extending set of actions
+that may be performed against DNS packets.
+
+Again, here is small all-allowing example:
+
+```ini
+[dummy_acl]
+allow_all=ipv4/0.0.0.0/0/^.*$/allow
+```
+
+Finally, one may examine ACL stats via following URL:
+
+`http://ip:port/acl`
+
+Remember to enable stats (see description above).
 
 Compiling
 ---------
