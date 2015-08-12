@@ -1,4 +1,5 @@
 /* Copyright (c) 2014, Matt Stancliff <matt@genges.com>
+ * Modified by Oleksandr Natalenko <o.natalenko@lanet.ua>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,7 +37,7 @@
  * each 8x256 lookup table is 16k. */
 #ifndef CRC64SPEED_DUAL
 static uint64_t crc64_table[8][256] = { { 0 } };
-static void *crc64_table_little = NULL, *crc64_table_big = NULL;
+static void *crc64_table_little = NULL;
 static const bool dual = false;
 #else
 static uint64_t crc64_table_little[8][256] = { { 0 } };
@@ -164,17 +165,6 @@ bool crc64speed_init(void) {
     return true;
 }
 
-/* Returns false if CRC64SPEED_SAFE and table already initialized. */
-bool crc64speed_init_big(void) {
-#ifndef CRC64SPEED_DUAL
-    should_init(crc64_table, BIG1);
-#else
-    should_init(crc64_table_big, BIG1);
-#endif
-    crcspeed64big_init(crc64, dual ? crc64_table_big : crc64_table);
-    return true;
-}
-
 uint64_t crc64speed(uint64_t crc, const void *s, const uint64_t l) {
 /* Quickly check if CRC table is initialized to little endian correctly. */
 #ifndef CRC64SPEED_DUAL
@@ -186,79 +176,3 @@ uint64_t crc64speed(uint64_t crc, const void *s, const uint64_t l) {
                             (const void *)s, l);
 }
 
-uint64_t crc64speed_big(uint64_t crc, const void *s, const uint64_t l) {
-/* Quickly check if CRC table is initialized to big endian correctly. */
-#ifndef CRC64SPEED_DUAL
-    check_init(crc64_table, BIG1);
-#else
-    check_init(crc64_table_big, BIG1);
-#endif
-    return crcspeed64big(dual ? crc64_table_big : crc64_table, crc, (const void *)s,
-                         l);
-}
-
-bool crc64speed_init_native(void) {
-    const uint64_t n = 1;
-    return *(const char *)&n ? crc64speed_init() : crc64speed_init_big();
-}
-
-/* Iterate over table to fully load it into a cache near the CPU. */
-void crc64speed_cache_table(void) {
-    uint64_t m;
-    for (int i = 0; i < 8; ++i) {
-        for (int j = 0; j < 256; ++j) {
-#ifndef CRC64SPEED_DUAL
-            m = crc64_table[i][j];
-#else
-            m = crc64_table_little[i][j];
-            m += crc64_table_big[i][j];
-#endif
-            ++m;
-        }
-    }
-}
-
-/* If you are on a platform where endianness can change at runtime, this
- * will break unless you compile with CRC64SPEED_DUAL and manually run
- * _init() and _init_big() instead of using _init_native() */
-uint64_t crc64speed_native(uint64_t crc, const void *s, const uint64_t l) {
-    const uint64_t n = 1;
-    return *(const char *)&n ? crc64speed(crc, s, l) : crc64speed_big(crc, s, l);
-}
-
-/* Test main */
-#if defined(REDIS_TEST) || defined(REDIS_TEST_MAIN)
-#include <stdio.h>
-
-#define UNUSED(x) (void)(x)
-int crc64Test(int argc, char *argv[]) {
-    UNUSED(argc);
-    UNUSED(argv);
-    crc64speed_init();
-    printf("[calcula]: e9c6d914c4b8d9ca == %016" PRIx64 "\n",
-           (uint64_t)crc64(0, "123456789", 9));
-    printf("[lookupt]: e9c6d914c4b8d9ca == %016" PRIx64 "\n",
-           (uint64_t)crc64_lookup(0, "123456789", 9));
-    printf("[64speed]: e9c6d914c4b8d9ca == %016" PRIx64 "\n",
-           (uint64_t)crc64speed(0, "123456789", 9));
-    char li[] = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed "
-                "do eiusmod tempor incididunt ut labore et dolore magna "
-                "aliqua. Ut enim ad minim veniam, quis nostrud exercitation "
-                "ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis "
-                "aute irure dolor in reprehenderit in voluptate velit esse "
-                "cillum dolore eu fugiat nulla pariatur. Excepteur sint "
-                "occaecat cupidatat non proident, sunt in culpa qui officia "
-                "deserunt mollit anim id est laborum.";
-    printf("[calcula]: c7794709e69683b3 == %016" PRIx64 "\n",
-           (uint64_t)crc64(0, li, sizeof li));
-    printf("[lookupt]: c7794709e69683b3 == %016" PRIx64 "\n",
-           (uint64_t)crc64_lookup(0, li, sizeof li));
-    printf("[64speed]: c7794709e69683b3 == %016" PRIx64 "\n",
-           (uint64_t)crc64speed(0, li, sizeof li));
-    return 0;
-}
-#endif
-
-#ifdef REDIS_TEST_MAIN
-int main(int argc, char *argv[]) { return crc64Test(argc, argv); }
-#endif
