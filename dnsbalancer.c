@@ -19,7 +19,7 @@
  */
 
 #include <bsd/unistd.h>
-#include <crc64.h>
+#include <crc64speed.h>
 #include <getopt.h>
 #include <hashitems.h>
 #include <iniparser.h>
@@ -65,7 +65,7 @@ static uint64_t db_sockaddr_addr_crc64(sa_family_t _family, void* _sockaddr)
 			memcpy(&address.address4, _sockaddr, sizeof(struct sockaddr_in));
 			unsigned long s_addr = ntohl(address.address4.sin_addr.s_addr);
 			const uint8_t* s_addr_buf = (const uint8_t*)&s_addr;
-			ret = crc64(s_addr_buf, sizeof(unsigned long));
+			ret = crc64speed(0, s_addr_buf, sizeof(unsigned long));
 			break;
 		case PF_INET6:
 			memcpy(&address.address6, _sockaddr, sizeof(struct sockaddr_in6));
@@ -74,7 +74,7 @@ static uint64_t db_sockaddr_addr_crc64(sa_family_t _family, void* _sockaddr)
 				uint32_t* s6_addr_piece = (uint32_t*)&address.address6.sin6_addr.s6_addr[i];
 				uint32_t s6_addr_piece_h = ntohl(*s6_addr_piece);
 				const uint8_t* s6_addr_buf = (const uint8_t*)&s6_addr_piece_h;
-				ret ^= crc64(s6_addr_buf, sizeof(uint32_t));
+				ret ^= crc64speed(0, s6_addr_buf, sizeof(uint32_t));
 			}
 			break;
 		default:
@@ -95,13 +95,13 @@ static uint64_t db_sockaddr_port_crc64(sa_family_t _family, void* _sockaddr)
 			memcpy(&address.address4, _sockaddr, sizeof(struct sockaddr_in));
 			unsigned short sin_port = ntohs(address.address4.sin_port);
 			const uint8_t* sin_port_buf = (const uint8_t*)&sin_port;
-			ret = crc64(sin_port_buf, sizeof(unsigned short));
+			ret = crc64speed(0, sin_port_buf, sizeof(unsigned short));
 			break;
 		case PF_INET6:
 			memcpy(&address.address6, _sockaddr, sizeof(struct sockaddr_in6));
 			unsigned short sin6_port = ntohs(address.address6.sin6_port);
 			const uint8_t* sin6_port_buf = (const uint8_t*)&sin6_port;
-			ret = crc64(sin6_port_buf, sizeof(unsigned short));
+			ret = crc64speed(0, sin6_port_buf, sizeof(unsigned short));
 			break;
 		default:
 			break;
@@ -778,6 +778,8 @@ static void sigall_handler(int _signo)
 
 int main(int argc, char** argv, char** envp)
 {
+	crc64speed_init();
+
 	int opts = 0;
 	int daemonize = 0;
 	int be_verbose = 0;

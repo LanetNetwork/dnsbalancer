@@ -18,7 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <crc64.h>
+#include <crc64speed.h>
 #include <hash.h>
 #include <pfcq.h>
 
@@ -31,7 +31,7 @@ db_hash_t db_make_hash(ldns_pkt* _packet, ldns_rr* _rr, int _forwarder_socket)
 	ret.uniq = pfcq_mstring("%d%u%u%u%s",
 			_forwarder_socket, ldns_pkt_id(_packet), ldns_rr_get_type(_rr), ldns_rr_get_class(_rr), fqdn);
 	free(fqdn);
-	ret.crc = crc64((uint8_t*)ret.uniq, strlen(ret.uniq));
+	ret.crc = crc64speed(0, (uint8_t*)ret.uniq, strlen(ret.uniq));
 
 	return ret;
 }

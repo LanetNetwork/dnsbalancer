@@ -47,7 +47,8 @@ include_directories(.
 	pfpthquirks)
 
 add_executable(dnsbalancer
-	crc64.c
+	crcspeed.c
+	crc64speed.c
 	dnsbalancer.c
 	hash.c
 	hashitems.c
