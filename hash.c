@@ -28,8 +28,10 @@ db_hash_t db_make_hash(ldns_pkt* _packet, ldns_rr* _rr, int _forwarder_socket)
 
 	ldns_rdf* domain = ldns_rr_owner(_rr);
 	char* fqdn = ldns_rdf2str(domain);
+	int rr_type = ldns_rr_get_type(_rr);
+	int rr_class = ldns_rr_get_class(_rr);
 	ret.uniq = pfcq_mstring("%d%u%u%u%s",
-			_forwarder_socket, ldns_pkt_id(_packet), ldns_rr_get_type(_rr), ldns_rr_get_class(_rr), fqdn);
+			_forwarder_socket, ldns_pkt_id(_packet), rr_type, rr_class, fqdn);
 	free(fqdn);
 	ret.crc = crc64speed(0, (uint8_t*)ret.uniq, strlen(ret.uniq));
 

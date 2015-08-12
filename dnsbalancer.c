@@ -57,23 +57,28 @@ static void __version(void)
 static uint64_t db_sockaddr_addr_crc64(sa_family_t _family, void* _sockaddr)
 {
 	uint64_t ret = 0;
+	unsigned long s_addr = 0;
+	const uint8_t* s_addr_buf = NULL;
+	const uint8_t* s6_addr_buf = NULL;
+	uint32_t* s6_addr_piece = NULL;
+	uint32_t s6_addr_piece_h = 0;
 	pfcq_net_address_t address;
 
 	switch (_family)
 	{
 		case PF_INET:
 			memcpy(&address.address4, _sockaddr, sizeof(struct sockaddr_in));
-			unsigned long s_addr = ntohl(address.address4.sin_addr.s_addr);
-			const uint8_t* s_addr_buf = (const uint8_t*)&s_addr;
+			s_addr = ntohl(address.address4.sin_addr.s_addr);
+			s_addr_buf = (const uint8_t*)&s_addr;
 			ret = crc64speed(0, s_addr_buf, sizeof(unsigned long));
 			break;
 		case PF_INET6:
 			memcpy(&address.address6, _sockaddr, sizeof(struct sockaddr_in6));
 			for (size_t i = 0; i < sizeof(address.address6.sin6_addr.s6_addr); i += sizeof(address.address6.sin6_addr.s6_addr) / sizeof(uint32_t))
 			{
-				uint32_t* s6_addr_piece = (uint32_t*)&address.address6.sin6_addr.s6_addr[i];
-				uint32_t s6_addr_piece_h = ntohl(*s6_addr_piece);
-				const uint8_t* s6_addr_buf = (const uint8_t*)&s6_addr_piece_h;
+				s6_addr_piece = (uint32_t*)&address.address6.sin6_addr.s6_addr[i];
+				s6_addr_piece_h = ntohl(*s6_addr_piece);
+				s6_addr_buf = (const uint8_t*)&s6_addr_piece_h;
 				ret ^= crc64speed(0, s6_addr_buf, sizeof(uint32_t));
 			}
 			break;
@@ -87,21 +92,23 @@ static uint64_t db_sockaddr_addr_crc64(sa_family_t _family, void* _sockaddr)
 static uint64_t db_sockaddr_port_crc64(sa_family_t _family, void* _sockaddr)
 {
 	uint64_t ret = 0;
+	unsigned short u_port = 0;
+	const uint8_t* u_port_buf = NULL;
 	pfcq_net_address_t address;
 
 	switch (_family)
 	{
 		case PF_INET:
 			memcpy(&address.address4, _sockaddr, sizeof(struct sockaddr_in));
-			unsigned short sin_port = ntohs(address.address4.sin_port);
-			const uint8_t* sin_port_buf = (const uint8_t*)&sin_port;
-			ret = crc64speed(0, sin_port_buf, sizeof(unsigned short));
+			u_port = ntohs(address.address4.sin_port);
+			u_port_buf = (const uint8_t*)&u_port;
+			ret = crc64speed(0, u_port_buf, sizeof(unsigned short));
 			break;
 		case PF_INET6:
 			memcpy(&address.address6, _sockaddr, sizeof(struct sockaddr_in6));
-			unsigned short sin6_port = ntohs(address.address6.sin6_port);
-			const uint8_t* sin6_port_buf = (const uint8_t*)&sin6_port;
-			ret = crc64speed(0, sin6_port_buf, sizeof(unsigned short));
+			u_port = ntohs(address.address6.sin6_port);
+			u_port_buf = (const uint8_t*)&u_port;
+			ret = crc64speed(0, u_port_buf, sizeof(unsigned short));
 			break;
 		default:
 			break;
@@ -147,6 +154,8 @@ static ssize_t db_find_alive_forwarder(db_frontend_t* _frontend, pfcq_fprng_cont
 	uint64_t least_pkts = UINT64_MAX;
 	uint64_t least_traffic = UINT64_MAX;
 	uint64_t xor = 0;
+	uint64_t crc1 = 0;
+	uint64_t crc2 = 0;
 	double probability = 0;
 	double normalized_weight = 0;
 
@@ -194,7 +203,9 @@ static ssize_t db_find_alive_forwarder(db_frontend_t* _frontend, pfcq_fprng_cont
 					}
 			break;
 		case DB_BE_MODE_HASH_L3_L4:
-			xor = db_sockaddr_addr_crc64(_frontend->layer3, _sockaddr) ^ db_sockaddr_port_crc64(_frontend->layer3, _sockaddr);
+			crc1 = db_sockaddr_addr_crc64(_frontend->layer3, _sockaddr);
+			crc2 = db_sockaddr_port_crc64(_frontend->layer3, _sockaddr);
+			xor = crc1 ^ crc2;
 			ret = __db_find_alive_forwarder_by_offset(xor, &_frontend->backend);
 			break;
 		case DB_BE_MODE_HASH_L3:
@@ -606,13 +617,14 @@ static void* db_worker(void* _data)
 								switch (data->layer3)
 								{
 									case PF_INET:
-										address_matched = (address.address4.sin_addr.s_addr & current_acl_item->netmask.address4.s_addr) == current_acl_item->address.address4.s_addr;
+										address_matched = (unsigned short int)
+											((address.address4.sin_addr.s_addr & current_acl_item->netmask.address4.s_addr) == current_acl_item->address.address4.s_addr);
 										break;
 									case PF_INET6:
 										for (size_t k = 0; k < 16; k++)
 										{
-											anded6.s6_addr[k] = address.address6.sin6_addr.s6_addr[k] & current_acl_item->netmask.address6.s6_addr[k];
-											address_matched = anded6.s6_addr[k] == current_acl_item->address.address6.s6_addr[k];
+											anded6.s6_addr[k] = (uint8_t)(address.address6.sin6_addr.s6_addr[k] & current_acl_item->netmask.address6.s6_addr[k]);
+											address_matched = (unsigned short int)(anded6.s6_addr[k] == current_acl_item->address.address6.s6_addr[k]);
 											if (!address_matched)
 												break;
 										}
@@ -624,7 +636,7 @@ static void* db_worker(void* _data)
 								if (address_matched)
 								{
 									char* fqdn = ldns_rdf2str(ldns_rr_owner(client_query));
-									unsigned short regex_matched = regexec(&current_acl_item->regex, fqdn, 0, NULL, 0) == 0;
+									unsigned short int regex_matched = (unsigned short int)(regexec(&current_acl_item->regex, fqdn, 0, NULL, 0) == 0);
 									free(fqdn);
 									if (regex_matched)
 									{
@@ -1234,7 +1246,7 @@ int main(int argc, char** argv, char** envp)
 						panic("inet_pton");
 					pfcq_zero(&new_acl_item->netmask.address6, sizeof(struct in6_addr));
 					for (long j = 0; j < strtol(acl_item_netmask, NULL, 10); j++)
-						new_acl_item->netmask.address6.s6_addr[j / 8] |= 1 << (j % 8);
+						new_acl_item->netmask.address6.s6_addr[j / 8] |= (uint8_t)(1 << (j % 8));
 					break;
 				default:
 					panic("socket domain");

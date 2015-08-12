@@ -61,7 +61,7 @@ void crcspeed16little_init(crcfn16 crcfn, uint16_t table[8][256]) {
     for (int n = 0; n < 256; n++) {
         crc = table[0][n];
         for (int k = 1; k < 8; k++) {
-            crc = table[0][(crc >> 8) & 0xff] ^ (crc << 8);
+            crc = (uint16_t)(table[0][(crc >> 8) & 0xff] ^ (crc << 8));
             table[k][n] = crc;
         }
     }
