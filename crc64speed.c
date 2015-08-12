@@ -146,14 +146,6 @@ uint64_t crc64(uint_fast64_t crc, const void *in_data, const uint64_t len) {
 }
 /******************** END GENERATED PYCRC FUNCTIONS ********************/
 
-/* Only for testing; doesn't support DUAL */
-uint64_t crc64_lookup(uint64_t crc, const void *in_data, const uint64_t len) {
-    const uint8_t *data = in_data;
-    for (size_t i = 0; i < len; i++)
-        crc = crc64_table[0][(uint8_t)crc ^ data[i]] ^ (crc >> 8);
-    return crc;
-}
-
 /* Returns false if CRC64SPEED_SAFE and table already initialized. */
 bool crc64speed_init(void) {
 #ifndef CRC64SPEED_DUAL
