@@ -1252,7 +1252,7 @@ int main(int argc, char** argv, char** envp)
 					panic("socket domain");
 					break;
 			}
-			if (unlikely(regcomp(&new_acl_item->regex, acl_item_regex, REG_EXTENDED)))
+			if (unlikely(regcomp(&new_acl_item->regex, acl_item_regex, REG_EXTENDED | REG_NOSUB)))
 			{
 				inform("ACL: %s\n", frontend_acl);
 				stop("Unable to compile regex specified in config file");
