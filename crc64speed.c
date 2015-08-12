@@ -183,7 +183,7 @@ uint64_t crc64speed(uint64_t crc, const void *s, const uint64_t l) {
     check_init(crc64_table_little, LITTLE1);
 #endif
     return crcspeed64little(dual ? crc64_table_little : crc64_table, crc,
-                            (void *)s, l);
+                            (const void *)s, l);
 }
 
 uint64_t crc64speed_big(uint64_t crc, const void *s, const uint64_t l) {
@@ -193,13 +193,13 @@ uint64_t crc64speed_big(uint64_t crc, const void *s, const uint64_t l) {
 #else
     check_init(crc64_table_big, BIG1);
 #endif
-    return crcspeed64big(dual ? crc64_table_big : crc64_table, crc, (void *)s,
+    return crcspeed64big(dual ? crc64_table_big : crc64_table, crc, (const void *)s,
                          l);
 }
 
 bool crc64speed_init_native(void) {
     const uint64_t n = 1;
-    return *(char *)&n ? crc64speed_init() : crc64speed_init_big();
+    return *(const char *)&n ? crc64speed_init() : crc64speed_init_big();
 }
 
 /* Iterate over table to fully load it into a cache near the CPU. */
@@ -223,7 +223,7 @@ void crc64speed_cache_table(void) {
  * _init() and _init_big() instead of using _init_native() */
 uint64_t crc64speed_native(uint64_t crc, const void *s, const uint64_t l) {
     const uint64_t n = 1;
-    return *(char *)&n ? crc64speed(crc, s, l) : crc64speed_big(crc, s, l);
+    return *(const char *)&n ? crc64speed(crc, s, l) : crc64speed_big(crc, s, l);
 }
 
 /* Test main */

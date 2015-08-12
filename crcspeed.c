@@ -104,8 +104,8 @@ void crcspeed16big_init(crcfn16 fn, uint16_t big_table[8][256]) {
  * 64 bit crc = process 8 bytes at once;
  */
 uint64_t crcspeed64little(uint64_t little_table[8][256], uint64_t crc,
-                          void *buf, size_t len) {
-    unsigned char *next = buf;
+                          const void *buf, size_t len) {
+    const unsigned char *next = buf;
 
     /* process individual bytes until we reach an 8-byte aligned pointer */
     while (len && ((uintptr_t)next & 7) != 0) {
@@ -114,7 +114,7 @@ uint64_t crcspeed64little(uint64_t little_table[8][256], uint64_t crc,
     }
     /* fast middle processing, 8 bytes (aligned!) per loop */
     while (len >= 8) {
-        crc ^= *(uint64_t *)next;
+        crc ^= *(const uint64_t *)next;
         crc = little_table[7][crc & 0xff] ^
               little_table[6][(crc >> 8) & 0xff] ^
               little_table[5][(crc >> 16) & 0xff] ^
@@ -168,9 +168,9 @@ uint16_t crcspeed16little(uint16_t little_table[8][256], uint16_t crc,
 /* Calculate a non-inverted CRC eight bytes at a time on a big-endian
  * architecture.
  */
-uint64_t crcspeed64big(uint64_t big_table[8][256], uint64_t crc, void *buf,
+uint64_t crcspeed64big(uint64_t big_table[8][256], uint64_t crc, const void *buf,
                        size_t len) {
-    unsigned char *next = buf;
+    const unsigned char *next = buf;
 
     crc = rev8(crc);
     while (len && ((uintptr_t)next & 7) != 0) {
@@ -178,7 +178,7 @@ uint64_t crcspeed64big(uint64_t big_table[8][256], uint64_t crc, void *buf,
         len--;
     }
     while (len >= 8) {
-        crc ^= *(uint64_t *)next;
+        crc ^= *(const uint64_t *)next;
         crc = big_table[0][crc & 0xff] ^
               big_table[1][(crc >> 8) & 0xff] ^
               big_table[2][(crc >> 16) & 0xff] ^
