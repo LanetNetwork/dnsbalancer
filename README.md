@@ -194,8 +194,8 @@ network mask is specified as decimal prefix like /0 or /24);
 * `action` is, naturally, action performed against query in question (currently valid values are:
 `allow`, `deny`).
 
-ACL is examined step-by-step. Also ACLs may be used to mangle queries in future, extending set of actions
-that may be performed against DNS packets.
+ACL is examined step-by-step. Default ACL policy is to accept all queries. Also ACLs may be used to
+mangle queries in future, extending set of actions that may be performed against DNS packets.
 
 Again, here is small all-allowing example:
 
