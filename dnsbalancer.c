@@ -79,7 +79,7 @@ static uint64_t db_sockaddr_addr_crc64(sa_family_t _family, void* _sockaddr)
 				s6_addr_piece = (uint32_t*)&address.address6.sin6_addr.s6_addr[i];
 				s6_addr_piece_h = ntohl(*s6_addr_piece);
 				s6_addr_buf = (const uint8_t*)&s6_addr_piece_h;
-				ret ^= crc64speed(0, s6_addr_buf, sizeof(uint32_t));
+				ret = crc64speed(ret, s6_addr_buf, sizeof(uint32_t));
 			}
 			break;
 		default:
