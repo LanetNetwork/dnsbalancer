@@ -22,17 +22,33 @@
 #include <hash.h>
 #include <pfcq.h>
 
-db_hash_t db_make_hash(ldns_pkt* _packet, ldns_rr* _rr, int _forwarder_socket)
+db_prehash_t db_make_prehash(ldns_pkt* _packet, ldns_rr* _rr, int _forwarder_socket)
+{
+	db_prehash_t ret;
+
+	ret.packet_id = ldns_pkt_id(_packet);
+	ret.rr_type = ldns_rr_get_type(_rr);
+	ret.rr_class = ldns_rr_get_class(_rr);
+	ret.fqdn = ldns_rdf2str(ldns_rr_owner(_rr));
+	ret.forwarder_socket = _forwarder_socket;
+
+	return ret;
+}
+
+void db_free_prehash(db_prehash_t* _prehash)
+{
+	if (_prehash->fqdn)
+		free(_prehash->fqdn);
+
+	return;
+}
+
+db_hash_t db_make_hash(db_prehash_t* _prehash)
 {
 	db_hash_t ret;
 
-	ldns_rdf* domain = ldns_rr_owner(_rr);
-	char* fqdn = ldns_rdf2str(domain);
-	int rr_type = ldns_rr_get_type(_rr);
-	int rr_class = ldns_rr_get_class(_rr);
 	ret.uniq = pfcq_mstring("%d%u%u%u%s",
-			_forwarder_socket, ldns_pkt_id(_packet), rr_type, rr_class, fqdn);
-	free(fqdn);
+			_prehash->forwarder_socket, _prehash->packet_id, _prehash->rr_type, _prehash->rr_class, _prehash->fqdn);
 	ret.crc = crc64speed(0, (uint8_t*)ret.uniq, strlen(ret.uniq));
 
 	return ret;

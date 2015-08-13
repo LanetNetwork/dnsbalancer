@@ -32,7 +32,19 @@ typedef struct db_hash
 	uint64_t crc;
 } db_hash_t;
 
-db_hash_t db_make_hash(ldns_pkt* _packet, ldns_rr* _rr, int _forwarder_socket) __attribute__((nonnull(1, 2)));
+typedef struct db_prehash
+{
+	ldns_rr_type rr_type;
+	ldns_rr_class rr_class;
+	char* fqdn;
+	int forwarder_socket;
+	uint16_t packet_id;
+	int __padding1:16;
+} db_prehash_t;
+
+db_prehash_t db_make_prehash(ldns_pkt* _packet, ldns_rr* _rr, int _forwarder_socket) __attribute__((nonnull(1, 2)));
+void db_free_prehash(db_prehash_t* _prehash);
+db_hash_t db_make_hash(db_prehash_t* _prehash) __attribute__((nonnull(1)));
 void db_free_hash(db_hash_t* _hash) __attribute__((nonnull(1)));
 unsigned short int db_compare_hashes(db_hash_t* _hash1, db_hash_t* _hash2) __attribute__((nonnull(1, 2)));
 

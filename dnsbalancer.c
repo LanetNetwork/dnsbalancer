@@ -279,7 +279,9 @@ static int db_ping_forwarder(db_forwarder_t* _forwarder)
 		goto packet_free;
 	if (unlikely(send(db_ping_socket, db_ping_packet_buffer, db_ping_packet_buffer_size, 0) == -1))
 		goto ping_buffer_free;
-	db_hash_t hash_request = db_make_hash(db_ping_packet, db_ping_packet_rr, db_ping_socket);
+	db_prehash_t prehash_request = db_make_prehash(db_ping_packet, db_ping_packet_rr, db_ping_socket);
+	db_hash_t hash_request = db_make_hash(&prehash_request);
+	db_free_prehash(&prehash_request);
 
 	// Ping reply
 	ssize_t db_echo_packet_buffer_size = recv(db_ping_socket, db_echo_packet_buffer, DB_DEFAULT_DNS_PACKET_SIZE, 0);
@@ -300,7 +302,9 @@ static int db_ping_forwarder(db_forwarder_t* _forwarder)
 		ldns_rr* db_echo_query = ldns_rr_list_rr(db_echo_queries, i);
 		if (likely(ldns_rr_is_question(db_echo_query)))
 		{
-			db_hash_t hash_reply = db_make_hash(db_echo_packet, db_echo_query, db_ping_socket);
+			db_prehash_t prehash_reply = db_make_prehash(db_echo_packet, db_echo_query, db_ping_socket);
+			db_hash_t hash_reply = db_make_hash(&prehash_reply);
+			db_free_prehash(&prehash_reply);
 			if (likely(db_compare_hashes(&hash_request, &hash_reply)))
 				ret = 1;
 			db_free_hash(&hash_reply);
@@ -608,11 +612,15 @@ static void* db_worker(void* _data)
 					}
 					ldns_rr_list* client_queries = ldns_pkt_question(client_query_packet);
 					size_t client_queries_count = ldns_rr_list_rr_count(client_queries);
+					db_prehash_t client_query_prehash;
 					for (size_t j = 0; j < client_queries_count; j++)
 					{
 						ldns_rr* client_query = ldns_rr_list_rr(client_queries, j);
 						if (likely(ldns_rr_is_question(client_query)))
 						{
+							// Extract query info
+							client_query_prehash = db_make_prehash(client_query_packet, client_query, forwarders[forwarder_index]);
+
 							// Check query against ACL
 							struct db_acl_item* current_acl_item = NULL;
 							db_acl_action_t query_action = DB_ACL_ACTION_ALLOW;
@@ -639,35 +647,26 @@ static void* db_worker(void* _data)
 										panic("socket domain");
 										break;
 								}
-								if (address_matched)
+								if (address_matched && regexec(&current_acl_item->regex, client_query_prehash.fqdn, 0, NULL, 0) == REG_NOERROR)
 								{
-									char* fqdn = ldns_rdf2str(ldns_rr_owner(client_query));
-									unsigned short int regex_matched = (unsigned short int)(regexec(&current_acl_item->regex, fqdn, 0, NULL, 0) == REG_NOERROR);
-									free(fqdn);
-									if (regex_matched)
-									{
-										query_action = current_acl_item->action;
-										if (unlikely(pthread_spin_lock(&current_acl_item->hits_lock)))
-											panic("pthread_spin_lock");
-										current_acl_item->hits++;
-										if (unlikely(pthread_spin_unlock(&current_acl_item->hits_lock)))
-											panic("pthread_spin_unlock");
-										break;
-									}
+									query_action = current_acl_item->action;
+									if (unlikely(pthread_spin_lock(&current_acl_item->hits_lock)))
+										panic("pthread_spin_lock");
+									current_acl_item->hits++;
+									if (unlikely(pthread_spin_unlock(&current_acl_item->hits_lock)))
+										panic("pthread_spin_unlock");
+									break;
 								}
 							}
 							if (query_action == DB_ACL_ACTION_DENY)
-							{
-								ldns_pkt_free(client_query_packet);
 								goto denied;
-							}
 
 							// Make request ID from query string and DNS packet ID.
 							// CRC64 hash is used to distribute requests over hash tables,
 							// raw hash is used to select record from specific table
 							// when answering to request
 							struct db_item* new_item = pfcq_alloc(sizeof(struct db_item));
-							new_item->hash = db_make_hash(client_query_packet, client_query, forwarders[forwarder_index]);
+							new_item->hash = db_make_hash(&client_query_prehash);
 							new_item->forwarder = forwarder_index;
 							switch (data->layer3)
 							{
@@ -687,14 +686,14 @@ static void* db_worker(void* _data)
 							break;
 						}
 					}
-					ldns_pkt_free(client_query_packet);
 
 					// Forward request to forwarder
 					ssize_t send_res = send(forwarders[forwarder_index], server_buffer, query_size, 0);
 					if (likely(send_res != -1))
 						db_stats_forwarder_in(data->backend.forwarders[forwarder_index], send_res);
 denied:
-					__noop;
+					db_free_prehash(&client_query_prehash);
+					ldns_pkt_free(client_query_packet);
 				} else
 				{
 					// Accept answer from forwarder
@@ -720,7 +719,9 @@ denied:
 						if (likely(ldns_rr_is_question(backend_query)))
 						{
 							// Calculate answer ID from DNS metadata
-							db_hash_t hash = db_make_hash(backend_answer_packet, backend_query, epoll_events[i].data.fd);
+							db_prehash_t prehash = db_make_prehash(backend_answer_packet, backend_query, epoll_events[i].data.fd);
+							db_hash_t hash = db_make_hash(&prehash);
+							db_free_prehash(&prehash);
 							// Select info from hash table
 							struct db_item* found_item = db_pop_item(&db_hashlist, &hash);
 							db_free_hash(&hash);
