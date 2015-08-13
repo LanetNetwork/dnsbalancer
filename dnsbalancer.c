@@ -638,7 +638,7 @@ static void* db_worker(void* _data)
 								if (address_matched)
 								{
 									char* fqdn = ldns_rdf2str(ldns_rr_owner(client_query));
-									unsigned short int regex_matched = (unsigned short int)(regexec(&current_acl_item->regex, fqdn, 0, NULL, 0) == 0);
+									unsigned short int regex_matched = (unsigned short int)(regexec(&current_acl_item->regex, fqdn, 0, NULL, 0) == REG_NOERROR);
 									free(fqdn);
 									if (regex_matched)
 									{
