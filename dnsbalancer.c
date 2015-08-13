@@ -622,44 +622,17 @@ static void* db_worker(void* _data)
 							client_query_prehash = db_make_prehash(client_query_packet, client_query, forwarders[forwarder_index]);
 
 							// Check query against ACL
-							struct db_acl_item* current_acl_item = NULL;
-							db_acl_action_t query_action = DB_ACL_ACTION_ALLOW;
-							TAILQ_FOREACH(current_acl_item, &data->acl, tailq)
+							switch (db_check_query_acl(data->layer3, &address, &client_query_prehash, &data->acl))
 							{
-								unsigned short int address_matched = 0;
-								struct in6_addr anded6;
-								switch (data->layer3)
-								{
-									case PF_INET:
-										address_matched = (unsigned short int)
-											((address.address4.sin_addr.s_addr & current_acl_item->netmask.address4.s_addr) == current_acl_item->address.address4.s_addr);
-										break;
-									case PF_INET6:
-										for (size_t k = 0; k < 16; k++)
-										{
-											anded6.s6_addr[k] = (uint8_t)(address.address6.sin6_addr.s6_addr[k] & current_acl_item->netmask.address6.s6_addr[k]);
-											address_matched = (unsigned short int)(anded6.s6_addr[k] == current_acl_item->address.address6.s6_addr[k]);
-											if (!address_matched)
-												break;
-										}
-										break;
-									default:
-										panic("socket domain");
-										break;
-								}
-								if (address_matched && regexec(&current_acl_item->regex, client_query_prehash.fqdn, 0, NULL, 0) == REG_NOERROR)
-								{
-									query_action = current_acl_item->action;
-									if (unlikely(pthread_spin_lock(&current_acl_item->hits_lock)))
-										panic("pthread_spin_lock");
-									current_acl_item->hits++;
-									if (unlikely(pthread_spin_unlock(&current_acl_item->hits_lock)))
-										panic("pthread_spin_unlock");
+								case DB_ACL_ACTION_ALLOW:
 									break;
-								}
+								case DB_ACL_ACTION_DENY:
+									goto denied;
+									break;
+								default:
+									panic("Unknown ACL action occurred");
+									break;
 							}
-							if (query_action == DB_ACL_ACTION_DENY)
-								goto denied;
 
 							// Make request ID from query string and DNS packet ID.
 							// CRC64 hash is used to distribute requests over hash tables,

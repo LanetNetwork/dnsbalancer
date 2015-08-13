@@ -19,6 +19,7 @@
  */
 
 #include <hashitems.h>
+#include <pthread.h>
 
 void db_push_item(db_hashlist_t* _hashlist, struct db_item* _item)
 {

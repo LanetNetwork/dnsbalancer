@@ -24,6 +24,7 @@
 #define __ACL_H__
 
 #include <errno.h>
+#include <hash.h>
 #include <netinet/in.h>
 #include <pfcq.h>
 #include <regex.h>
@@ -55,6 +56,8 @@ struct db_acl_item
 };
 
 TAILQ_HEAD(db_acl, db_acl_item);
+
+db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _address, db_prehash_t* _prehash, struct db_acl* _acl) __attribute__((nonnull(2, 3, 4)));
 
 #endif /* __ACL_H__ */
 

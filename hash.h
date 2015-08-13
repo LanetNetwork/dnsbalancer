@@ -23,7 +23,6 @@
 #ifndef __HASH_H__
 #define __HASH_H__
 
-#include <dnsbalancer.h>
 #include <ldns/ldns.h>
 
 typedef struct db_hash
