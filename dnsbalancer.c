@@ -83,6 +83,7 @@ static uint64_t db_sockaddr_addr_crc64(sa_family_t _family, void* _sockaddr)
 			}
 			break;
 		default:
+			panic("socket domain");
 			break;
 	}
 
@@ -111,6 +112,7 @@ static uint64_t db_sockaddr_port_crc64(sa_family_t _family, void* _sockaddr)
 			ret = crc64speed(0, u_port_buf, sizeof(unsigned short));
 			break;
 		default:
+			panic("socket domain");
 			break;
 	}
 
