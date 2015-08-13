@@ -254,6 +254,7 @@ static int db_ping_forwarder(db_forwarder_t* _forwarder)
 			connect_res = connect(db_ping_socket, (const struct sockaddr*)&_forwarder->address.address6, (socklen_t)sizeof(struct sockaddr_in6));
 			break;
 		default:
+			panic("socket domain");
 			break;
 	}
 	if (unlikely(connect_res == -1))
@@ -502,6 +503,7 @@ static void* db_worker(void* _data)
 				connect_res = connect(forwarders[i], (const struct sockaddr*)&data->backend.forwarders[i]->address.address6, (socklen_t)sizeof(struct sockaddr_in6));
 				break;
 			default:
+				panic("socket domain");
 				break;
 		}
 		if (unlikely(connect_res == -1))
@@ -566,6 +568,7 @@ static void* db_worker(void* _data)
 									(struct sockaddr*)&address.address6, &client_address_length);
 							break;
 						default:
+							panic("socket domain");
 							break;
 					}
 					if (unlikely(query_size == -1))
@@ -585,6 +588,7 @@ static void* db_worker(void* _data)
 							break;
 						default:
 							panic("socket domain");
+							break;
 					}
 					if (unlikely(forwarder_index == -1))
 						continue;
