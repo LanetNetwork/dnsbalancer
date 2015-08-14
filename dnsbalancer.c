@@ -1189,11 +1189,11 @@ int main(int argc, char** argv, char** envp)
 			char* acl_item_expr_i = pfcq_strdup(acl_item_expr);
 			char* acl_item_expr_p = acl_item_expr_i;
 
-			char* acl_item_layer3 = strsep(&acl_item_expr, "/");
-			char* acl_item_host = strsep(&acl_item_expr, "/");
-			char* acl_item_netmask = strsep(&acl_item_expr, "/");
-			char* acl_item_regex = strsep(&acl_item_expr, "/");
-			char* acl_item_action = strsep(&acl_item_expr, "/");
+			char* acl_item_layer3 = strsep(&acl_item_expr_i, "/");
+			char* acl_item_host = strsep(&acl_item_expr_i, "/");
+			char* acl_item_netmask = strsep(&acl_item_expr_i, "/");
+			char* acl_item_regex = strsep(&acl_item_expr_i, "/");
+			char* acl_item_action = strsep(&acl_item_expr_i, "/");
 
 			struct db_acl_item* new_acl_item = pfcq_alloc(sizeof(struct db_acl_item));
 
