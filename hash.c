@@ -39,6 +39,7 @@ void db_free_prehash(db_prehash_t* _prehash)
 {
 	if (_prehash->fqdn)
 	{
+		pfcq_zero(_prehash->fqdn, strlen(_prehash->fqdn));
 		free(_prehash->fqdn);
 		_prehash->fqdn = NULL;
 	}
