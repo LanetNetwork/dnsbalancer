@@ -954,7 +954,7 @@ int main(int argc, char** argv, char** envp)
 	char* frontends_str = iniparser_getstring(config, DB_CONFIG_FRONTENDS_KEY, NULL);
 	if (unlikely(!frontends_str))
 		stop("No frontends configured in config file");
-	char* frontends_str_iterator = strdup(frontends_str);
+	char* frontends_str_iterator = pfcq_strdup(frontends_str);
 	char* frontends_str_iterator_p = frontends_str_iterator;
 	char* frontend = NULL;
 	while (likely(frontend = strsep(&frontends_str_iterator, DB_CONFIG_LIST_SEPARATOR)))
@@ -1064,7 +1064,7 @@ int main(int argc, char** argv, char** envp)
 			inform("Backend: %s\n", frontend_backend);
 			stop("No forwarders specified in config file");
 		}
-		char* backend_forwarders_iterator = strdup(backend_forwarders);
+		char* backend_forwarders_iterator = pfcq_strdup(backend_forwarders);
 		char* backend_forwarders_iterator_p = backend_forwarders_iterator;
 		char* forwarder = NULL;
 		while (likely(forwarder = strsep(&backend_forwarders_iterator, DB_CONFIG_LIST_SEPARATOR)))
@@ -1164,7 +1164,7 @@ int main(int argc, char** argv, char** envp)
 
 			frontends[frontends_count]->backend.forwarders_count++;
 		}
-		free(backend_forwarders_iterator_p);
+		pfcq_free(backend_forwarders_iterator_p);
 
 		pfcq_free(backend_mode_key);
 		pfcq_free(backend_forwarders_key);
@@ -1262,7 +1262,7 @@ int main(int argc, char** argv, char** envp)
 
 		frontends_count++;
 	}
-	free(frontends_str_iterator_p);
+	pfcq_free(frontends_str_iterator_p);
 
 	iniparser_freedict(config);
 
