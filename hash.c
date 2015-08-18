@@ -38,7 +38,10 @@ db_prehash_t db_make_prehash(ldns_pkt* _packet, ldns_rr* _rr, int _forwarder_soc
 void db_free_prehash(db_prehash_t* _prehash)
 {
 	if (_prehash->fqdn)
+	{
 		free(_prehash->fqdn);
+		_prehash->fqdn = NULL;
+	}
 
 	return;
 }
