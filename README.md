@@ -191,8 +191,13 @@ That means:
 * `netaddress` and `netmask` specifies hosts that are subjected to current ACL step (please note that
 network mask is specified as decimal prefix like /0 or /24);
 * `regex` is POSIX Extended Regular Expression, query FQDN is matched against it;
-* `action` is, naturally, action performed against query in question (currently valid values are:
-`allow`, `deny`).
+* `action` is, naturally, action performed against query in question (see below).
+
+Currently valid action values are:
+
+* `allow` accepts query;
+* `deny` silently drops query;
+* `nxdomain` sends NXDOMAIN back to client.
 
 ACL is examined step-by-step. Default ACL policy is to accept all queries. Also ACLs may be used to
 mangle queries in future, extending set of actions that may be performed against DNS packets.
