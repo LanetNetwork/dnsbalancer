@@ -629,6 +629,44 @@ static void* db_worker(void* _data)
 								case DB_ACL_ACTION_DENY:
 									goto denied;
 									break;
+								case DB_ACL_ACTION_NXDOMAIN:
+									__noop;
+									ldns_pkt* nxdomain_packet = ldns_pkt_new();
+
+									ldns_pkt_set_id(nxdomain_packet, ldns_pkt_id(client_query_packet));
+									ldns_pkt_set_qr(nxdomain_packet, 1);
+									ldns_pkt_set_rd(nxdomain_packet, 1);
+									ldns_pkt_set_ra(nxdomain_packet, 1);
+									ldns_pkt_set_opcode(nxdomain_packet, LDNS_PACKET_QUERY);
+									ldns_pkt_set_rcode(nxdomain_packet, LDNS_RCODE_NXDOMAIN);
+
+									ldns_rr_list* nxdomain_rr_list = ldns_rr_list_clone(client_queries);
+									ldns_pkt_push_rr_list(nxdomain_packet, LDNS_SECTION_QUESTION, nxdomain_rr_list);
+
+									uint8_t* nxdomain_buffer = NULL;
+									size_t nxdomain_buffer_size;
+									ldns_pkt2wire(&nxdomain_buffer, nxdomain_packet, &nxdomain_buffer_size);
+									switch (data->layer3)
+									{
+										case PF_INET:
+											sendto(server, nxdomain_buffer, nxdomain_buffer_size, 0,
+													(const struct sockaddr*)&address.address4, (socklen_t)sizeof(struct sockaddr_in));
+											break;
+										case PF_INET6:
+											sendto(server, nxdomain_buffer, nxdomain_buffer_size, 0,
+													(const struct sockaddr*)&address.address6, (socklen_t)sizeof(struct sockaddr_in6));
+											break;
+										default:
+											panic("socket domain");
+											break;
+									}
+
+									ldns_rr_list_free(nxdomain_rr_list);
+									ldns_pkt_free(nxdomain_packet);
+									free(nxdomain_buffer);
+
+									goto denied;
+									break;
 								default:
 									panic("Unknown ACL action occurred");
 									break;
@@ -1241,6 +1279,8 @@ int main(int argc, char** argv, char** envp)
 				new_acl_item->action = DB_ACL_ACTION_ALLOW;
 			else if (strcmp(acl_item_action, DB_CONFIG_ACL_ACTION_DENY) == 0)
 				new_acl_item->action = DB_ACL_ACTION_DENY;
+			else if (strcmp(acl_item_action, DB_CONFIG_ACL_ACTION_NXDOMAIN) == 0)
+				new_acl_item->action = DB_ACL_ACTION_NXDOMAIN;
 			else
 			{
 				inform("ACL: %s\n", frontend_acl);

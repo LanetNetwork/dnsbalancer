@@ -34,7 +34,8 @@
 typedef enum db_acl_action
 {
 	DB_ACL_ACTION_ALLOW,
-	DB_ACL_ACTION_DENY
+	DB_ACL_ACTION_DENY,
+	DB_ACL_ACTION_NXDOMAIN
 } db_acl_action_t;
 
 struct db_acl_item
