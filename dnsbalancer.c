@@ -36,11 +36,8 @@
 db_frontend_t** frontends = NULL;
 size_t frontends_count = 0;
 static volatile sig_atomic_t should_exit = 0;
-static db_hashlist_t db_hashlist;
+db_hashlist_t db_hashlist;
 static uint64_t db_gc_interval = 0;
-db_loadavg_t db_loadavg;
-static struct db_loadavg_items db_loadavg_items;
-static double db_loadavg_sampling_factor = 0;
 
 static void __usage(char* _argv0)
 {
@@ -382,52 +379,6 @@ static void* db_gc(void* _data)
 			if (unlikely(pthread_mutex_unlock(&db_hashlist.list[i].lock)))
 				panic("pthread_mutex_unlock");
 		}
-
-		// Hashlist loadavg calculation
-		struct db_loadavg_item* new_loadavg_item = pfcq_alloc(sizeof(struct db_loadavg_item));
-		new_loadavg_item->timestamp = current_time;
-		if (unlikely(pthread_spin_lock(&db_hashlist.max_collisions_lock)))
-			panic("pthread_spin_lock");
-		new_loadavg_item->max_collisions = db_hashlist.max_collisions;
-		db_hashlist.max_collisions = 0;
-		if (unlikely(pthread_spin_unlock(&db_hashlist.max_collisions_lock)))
-			panic("pthread_spin_unlock");
-		TAILQ_INSERT_HEAD(&db_loadavg_items, new_loadavg_item, tailq);
-
-		struct db_loadavg_item* current_loadavg_item = NULL;
-		struct db_loadavg_item* tmp_loadavg_item = NULL;
-		for (current_loadavg_item = TAILQ_FIRST(&db_loadavg_items); current_loadavg_item; current_loadavg_item = tmp_loadavg_item)
-		{
-			tmp_loadavg_item = TAILQ_NEXT(current_loadavg_item, tailq);
-			int64_t diff_ns = __pfcq_timespec_diff_ns(current_loadavg_item->timestamp, current_time);
-			if (unlikely(diff_ns >= DB_LOADAVG_ITEM_TTL))
-			{
-				TAILQ_REMOVE(&db_loadavg_items, current_loadavg_item, tailq);
-				pfcq_free(current_loadavg_item);
-			}
-		}
-
-		current_loadavg_item = NULL;
-		size_t mc_1 = 0;
-		size_t mc_5 = 0;
-		size_t mc_15 = 0;
-		TAILQ_FOREACH(current_loadavg_item, &db_loadavg_items, tailq)
-		{
-			int64_t diff_ns = __pfcq_timespec_diff_ns(current_loadavg_item->timestamp, current_time);
-			if (likely(diff_ns <= DB_1_MIN_NS))
-				mc_1 += current_loadavg_item->max_collisions;
-			if (unlikely(diff_ns <= DB_5_MINS_NS))
-				mc_5 += current_loadavg_item->max_collisions;
-			if (likely(diff_ns <= DB_15_MINS_NS))
-				mc_15 += current_loadavg_item->max_collisions;
-		}
-		if (unlikely(pthread_spin_lock(&db_loadavg.la_lock)))
-			panic("pthread_spin_lock");
-		db_loadavg.la_1 = (double)mc_1 / ((double)DB_1_MIN_S / db_loadavg_sampling_factor);
-		db_loadavg.la_5 = (double)mc_5 / ((double)DB_5_MINS_S / db_loadavg_sampling_factor);
-		db_loadavg.la_15 = (double)mc_15 / ((double)DB_15_MINS_S / db_loadavg_sampling_factor);
-		if (unlikely(pthread_spin_unlock(&db_loadavg.la_lock)))
-			panic("pthread_spin_unlock");
 
 		pfcq_sleep(db_gc_interval);
 	}
@@ -917,9 +868,6 @@ int main(int argc, char** argv, char** envp)
 			panic("pthread_mutex_init");
 		TAILQ_INIT(&db_hashlist.list[i].items);
 	}
-	db_hashlist.max_collisions = 0;
-	if (unlikely(pthread_spin_init(&db_hashlist.max_collisions_lock, PTHREAD_PROCESS_PRIVATE)))
-		panic("pthread_spin_init");
 
 	db_hashlist.ttl = ((uint64_t)iniparser_getint(config, DB_CONFIG_HASHLIST_TTL_KEY, DB_DEFAULT_HASHLIST_TTL)) * 1000000ULL;
 	if (unlikely(db_hashlist.ttl > INT64_MAX))
@@ -928,13 +876,11 @@ int main(int argc, char** argv, char** envp)
 		stop("Are you OK?");
 	}
 
-	TAILQ_INIT(&db_loadavg_items);
+	db_hashlist.items_count = 0;
+	if (unlikely(pthread_spin_init(&db_hashlist.items_count_lock, PTHREAD_PROCESS_PRIVATE)))
+		panic("pthread_spin_init");
 
 	db_gc_interval = ((uint64_t)iniparser_getint(config, DB_CONFIG_GC_INTERVAL_KEY, DB_DEFAULT_GC_INTERVAL)) * 1000000ULL;
-	db_loadavg_sampling_factor = (double)db_gc_interval / (double)DB_1_SEC_NS;
-
-	if (unlikely(pthread_spin_init(&db_loadavg.la_lock, PTHREAD_PROCESS_PRIVATE)))
-		panic("pthread_spin_init");
 
 	stats_enabled = (unsigned short int)iniparser_getint(config, DB_CONFIG_STATS_ENABLED_KEY, 0);
 
@@ -1402,16 +1348,6 @@ int main(int argc, char** argv, char** envp)
 	pfpthq_wait(gc_pool);
 	pfpthq_done(gc_pool);
 
-	if (unlikely(pthread_spin_destroy(&db_loadavg.la_lock)))
-		panic("pthread_spin_destroy");
-
-	while (likely(!TAILQ_EMPTY(&db_loadavg_items)))
-	{
-		struct db_loadavg_item* current_item = TAILQ_FIRST(&db_loadavg_items);
-		TAILQ_REMOVE(&db_loadavg_items, current_item, tailq);
-		pfcq_free(current_item);
-	}
-
 	for (size_t i = 0; i < db_hashlist.size; i++)
 	{
 		while (likely(!TAILQ_EMPTY(&db_hashlist.list[i].items)))
@@ -1423,8 +1359,9 @@ int main(int argc, char** argv, char** envp)
 			panic("pthread_mutex_destroy");
 	}
 	pfcq_free(db_hashlist.list);
-	if (unlikely(pthread_spin_destroy(&db_hashlist.max_collisions_lock)))
-		panic("pthread_spin_destroy");
+
+	if (unlikely(pthread_spin_destroy(&db_hashlist.items_count_lock)))
+		panic("pthread_spin_init");
 
 	if (unlikely(pthread_sigmask(SIG_UNBLOCK, &db_newmask, NULL) != 0))
 		panic("pthread_sigmask");

@@ -167,23 +167,5 @@ typedef struct db_frontend
 	struct db_acl acl;
 } db_frontend_t;
 
-typedef struct db_loadavg
-{
-	double la_1;
-	double la_5;
-	double la_15;
-	pthread_spinlock_t la_lock;
-	int __padding1;
-} db_loadavg_t;
-
-struct db_loadavg_item
-{
-	TAILQ_ENTRY(db_loadavg_item) tailq;
-	struct timespec timestamp;
-	size_t max_collisions;
-};
-
-TAILQ_HEAD(db_loadavg_items, db_loadavg_item);
-
 #endif /* __DNSBALANCER_H__ */
 

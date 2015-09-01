@@ -25,7 +25,7 @@
 
 extern db_frontend_t** frontends;
 extern size_t frontends_count;
-extern db_loadavg_t db_loadavg;
+extern db_hashlist_t db_hashlist;
 static struct MHD_Daemon* mhd_daemon = NULL;
 
 void db_stats_frontend_in(db_frontend_t* _frontend, uint64_t _delta_bytes)
@@ -225,12 +225,14 @@ static int db_answer_to_connection(void* _data,
 				stats = pfcq_cstring(stats, row);
 				pfcq_free(row);
 			}
-		stats = pfcq_cstring(stats, "# hashlist_loadavg\n");
-		if (unlikely(pthread_spin_lock(&db_loadavg.la_lock)))
+		if (unlikely(pthread_spin_lock(&db_hashlist.items_count_lock)))
 			panic("pthread_spin_lock");
-		char* row = pfcq_mstring("%1.2lf %1.2lf %1.2lf\n", db_loadavg.la_1, db_loadavg.la_5, db_loadavg.la_15);
-		if (unlikely(pthread_spin_unlock(&db_loadavg.la_lock)))
+		size_t hashlist_load = db_hashlist.items_count;
+		if (unlikely(pthread_spin_unlock(&db_hashlist.items_count_lock)))
 			panic("pthread_spin_unlock");
+		stats = pfcq_cstring(stats, "# hashlist_load\n");
+		char* row = pfcq_mstring("%lu\n",
+				hashlist_load);
 		stats = pfcq_cstring(stats, row);
 		pfcq_free(row);
 

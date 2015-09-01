@@ -29,14 +29,14 @@ void db_push_item(db_hashlist_t* _hashlist, struct db_item* _item)
 		panic("pthread_mutex_lock");
 	TAILQ_INSERT_TAIL(&_hashlist->list[db_hashitem].items, _item, tailq);
 	_hashlist->list[db_hashitem].items_count++;
-	if (unlikely(pthread_spin_lock(&_hashlist->max_collisions_lock)))
-		panic("pthread_spin_lock");
-	if (unlikely(_hashlist->list[db_hashitem].items_count > _hashlist->max_collisions))
-		_hashlist->max_collisions = _hashlist->list[db_hashitem].items_count;
-	if (unlikely(pthread_spin_unlock(&_hashlist->max_collisions_lock)))
-		panic("pthread_spin_unlock");
 	if (unlikely(pthread_mutex_unlock(&_hashlist->list[db_hashitem].lock)))
 		panic("pthread_mutex_unlock");
+
+	if (unlikely(pthread_spin_lock(&_hashlist->items_count_lock)))
+		panic("pthread_spin_lock");
+	_hashlist->items_count++;
+	if (unlikely(pthread_spin_unlock(&_hashlist->items_count_lock)))
+		panic("pthread_spin_unlock");
 
 	return;
 }
@@ -63,6 +63,12 @@ struct db_item* db_pop_item(db_hashlist_t* _hashlist, db_hash_t* _hash)
 	if (unlikely(pthread_mutex_unlock(&_hashlist->list[db_hashitem].lock)))
 		panic("pthread_mutex_unlock");
 
+	if (unlikely(pthread_spin_lock(&_hashlist->items_count_lock)))
+		panic("pthread_spin_lock");
+	_hashlist->items_count--;
+	if (unlikely(pthread_spin_unlock(&_hashlist->items_count_lock)))
+		panic("pthread_spin_unlock");
+
 	return ret;
 }
 
@@ -72,6 +78,12 @@ void db_destroy_item_unsafe(db_hashlist_t* _hashlist, size_t _bucket, struct db_
 	db_free_hash(&_item->hash);
 	pfcq_free(_item);
 	_hashlist->list[_bucket].items_count--;
+
+	if (unlikely(pthread_spin_lock(&_hashlist->items_count_lock)))
+		panic("pthread_spin_lock");
+	_hashlist->items_count--;
+	if (unlikely(pthread_spin_unlock(&_hashlist->items_count_lock)))
+		panic("pthread_spin_unlock");
 
 	return;
 }

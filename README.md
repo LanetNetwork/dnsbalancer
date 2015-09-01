@@ -43,13 +43,7 @@ Here is the list of DNS packet fields involved in CRC64 calculation:
 
 Also, forwarder socket number is used in CRC64 calculation as well. These 5 values
 are sufficient to connect DNS requests and replies unambiguously. If, however, CRC64
-hash collision happens, it is handled via simple linear list under separate lock. One
-may monitor hash table average load using stats served via HTTP (see below).
-
-Hash list average load is maximum hash collision domain size happened in hash table,
-averaged withing 1, 5 and 15 minutes. The lower value is, the better (1.00 is optimal but
-not achievable, higher values indicate lock contention, lower, on the contrary, shows that
-hash table is oversized). Try to keep hash table load average under 10.00.
+hash collision happens, it is handled via simple linear list under separate lock.
 
 Configuration
 -------------

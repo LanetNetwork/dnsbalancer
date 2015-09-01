@@ -51,10 +51,10 @@ typedef struct db_hashlist
 {
 	db_hashitem_t* list;
 	size_t size;
-	size_t max_collisions;
-	pthread_spinlock_t max_collisions_lock;
-	int __padding1;
 	uint64_t ttl;
+	size_t items_count;
+	pthread_spinlock_t items_count_lock;
+	int __padding1;
 } db_hashlist_t;
 
 void db_push_item(db_hashlist_t* _hashlist, struct db_item* _item) __attribute__((nonnull(1, 2)));
