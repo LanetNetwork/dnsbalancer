@@ -230,8 +230,8 @@ static int db_answer_to_connection(void* _data,
 		size_t hashlist_load = db_hashlist.items_count;
 		if (unlikely(pthread_spin_unlock(&db_hashlist.items_count_lock)))
 			panic("pthread_spin_unlock");
-		stats = pfcq_cstring(stats, "# hashlist_load\n");
-		char* row = pfcq_mstring("%lu\n",
+		stats = pfcq_cstring(stats, "# DEVEL_STATS\n");
+		char* row = pfcq_mstring("hashlist_avg: %lu\n",
 				hashlist_load);
 		stats = pfcq_cstring(stats, row);
 		pfcq_free(row);
