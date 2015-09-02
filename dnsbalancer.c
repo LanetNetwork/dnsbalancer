@@ -1165,14 +1165,13 @@ int main(int argc, char** argv, char** envp)
 			inform("ACL: %s\n", frontend_acl);
 			stop("No ACLs found in config file");
 		}
-		const char** acl_items = NULL;
 #ifdef DB_INIPARSER4
 		// IniParser 4 do not use internal malloc for iniparser_getseckeys anymore.
 		// Also see pfcq_free() vs. free() on acl_items below.
-		acl_items = pfcq_alloc(acl_items_count * sizeof(char*));
+		const char** acl_items = pfcq_alloc(acl_items_count * sizeof(char*));
 		iniparser_getseckeys(config, frontend_acl, acl_items);
 #else /* DB_INIPARSER4 */
-		acl_items = iniparser_getseckeys(config, frontend_acl);
+		char** acl_items = iniparser_getseckeys(config, frontend_acl);
 #endif /* DB_INIPARSER4 */
 		TAILQ_INIT(&frontends[frontends_count]->acl);
 		for (int i = 0; i < acl_items_count; i++)
