@@ -36,7 +36,7 @@
 db_frontend_t** frontends = NULL;
 size_t frontends_count = 0;
 static volatile sig_atomic_t should_exit = 0;
-db_hashlist_t db_hashlist;
+static db_hashlist_t db_hashlist;
 static uint64_t db_gc_interval = 0;
 
 static void __usage(char* _argv0)
@@ -876,10 +876,6 @@ int main(int argc, char** argv, char** envp)
 		stop("Are you OK?");
 	}
 
-	db_hashlist.items_count = 0;
-	if (unlikely(pthread_spin_init(&db_hashlist.items_count_lock, PTHREAD_PROCESS_PRIVATE)))
-		panic("pthread_spin_init");
-
 	db_gc_interval = ((uint64_t)iniparser_getint(config, DB_CONFIG_GC_INTERVAL_KEY, DB_DEFAULT_GC_INTERVAL)) * 1000000ULL;
 
 	stats_enabled = (unsigned short int)iniparser_getint(config, DB_CONFIG_STATS_ENABLED_KEY, 0);
@@ -1375,9 +1371,6 @@ int main(int argc, char** argv, char** envp)
 			panic("pthread_mutex_destroy");
 	}
 	pfcq_free(db_hashlist.list);
-
-	if (unlikely(pthread_spin_destroy(&db_hashlist.items_count_lock)))
-		panic("pthread_spin_init");
 
 	if (unlikely(pthread_sigmask(SIG_UNBLOCK, &db_newmask, NULL) != 0))
 		panic("pthread_sigmask");
