@@ -220,7 +220,7 @@ Compiling
 * gcc (tested with 4.8.3)
 * libbsd (tested with 0.6.0)
 * LDNS (tested with 1.6.16)
-* IniParser (tested with 3.1)
+* IniParser (tested with 3.1, 4.0)
 * libmicrohttpd (tested with 0.9.33)
 
 ### Compiling
@@ -242,6 +242,8 @@ or
 `cmake -DCMAKE_BUILD_TYPE=Debug ..`
 
 to build app with debug info. Then just type `make`.
+
+If IniParser v4.0 is used, pass -DDB\_INIPARSER4=1 to cmake command.
 
 Usage
 -----

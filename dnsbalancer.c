@@ -886,7 +886,7 @@ int main(int argc, char** argv, char** envp)
 
 	if (stats_enabled)
 	{
-		char* stats_layer3 = iniparser_getstring(config, DB_CONFIG_STATS_LAYER3_KEY, NULL);
+		const char* stats_layer3 = iniparser_getstring(config, DB_CONFIG_STATS_LAYER3_KEY, NULL);
 		if (unlikely(!stats_layer3))
 			stop("No stats L3 protocol specified in config file");
 		if (strcmp(stats_layer3, DB_CONFIG_IPV4) == 0)
@@ -898,7 +898,7 @@ int main(int argc, char** argv, char** envp)
 
 		unsigned short int stats_port = (unsigned short int)iniparser_getint(config, DB_CONFIG_STATS_PORT_KEY, DB_DEFAULT_STATS_PORT);
 
-		char* stats_bind = iniparser_getstring(config, DB_CONFIG_STATS_BIND_KEY, NULL);
+		const char* stats_bind = iniparser_getstring(config, DB_CONFIG_STATS_BIND_KEY, NULL);
 		if (unlikely(!stats_bind))
 			stop("No stats bind address specified in config file");
 		int inet_pton_stats_bind_res = -1;
@@ -935,7 +935,7 @@ int main(int argc, char** argv, char** envp)
 	}
 #endif
 
-	char* frontends_str = iniparser_getstring(config, DB_CONFIG_FRONTENDS_KEY, NULL);
+	const char* frontends_str = iniparser_getstring(config, DB_CONFIG_FRONTENDS_KEY, NULL);
 	if (unlikely(!frontends_str))
 		stop("No frontends configured in config file");
 	char* frontends_str_iterator = pfcq_strdup(frontends_str);
@@ -963,7 +963,7 @@ int main(int argc, char** argv, char** envp)
 		frontends[frontends_count]->workers_id = pfcq_alloc(frontends[frontends_count]->workers * sizeof(pthread_t));
 		frontends[frontends_count]->dns_max_packet_length = (int)iniparser_getint(config, frontend_dns_max_packet_length_key, DB_DEFAULT_DNS_PACKET_SIZE);
 
-		char* frontend_layer3 = iniparser_getstring(config, frontend_layer3_key, NULL);
+		const char* frontend_layer3 = iniparser_getstring(config, frontend_layer3_key, NULL);
 		if (unlikely(!frontend_layer3))
 		{
 			inform("Frontend: %s\n", frontend);
@@ -980,7 +980,7 @@ int main(int argc, char** argv, char** envp)
 		}
 
 		unsigned short int frontend_port = (unsigned short int)iniparser_getint(config, frontend_port_key, DB_DEFAULT_DNS_PORT);
-		char* frontend_bind = iniparser_getstring(config, frontend_bind_key, NULL);
+		const char* frontend_bind = iniparser_getstring(config, frontend_bind_key, NULL);
 		if (unlikely(!frontend_bind))
 		{
 			inform("Frontend: %s\n", frontend);
@@ -1006,7 +1006,7 @@ int main(int argc, char** argv, char** envp)
 		if (unlikely(inet_pton_bind_res != 1))
 			panic("inet_pton");
 
-		char* frontend_backend = iniparser_getstring(config, frontend_backend_key, NULL);
+		const char* frontend_backend = iniparser_getstring(config, frontend_backend_key, NULL);
 		if (unlikely(!frontend_backend))
 		{
 			inform("Frontend: %s\n", frontend);
@@ -1016,7 +1016,7 @@ int main(int argc, char** argv, char** envp)
 		char* backend_mode_key = pfcq_mstring("%s:%s", frontend_backend, "mode");
 		char* backend_forwarders_key = pfcq_mstring("%s:%s", frontend_backend, "forwarders");
 
-		char* backend_mode = iniparser_getstring(config, backend_mode_key, NULL);
+		const char* backend_mode = iniparser_getstring(config, backend_mode_key, NULL);
 		if (unlikely(!backend_mode))
 		{
 			inform("Backend: %s\n", frontend_backend);
@@ -1042,7 +1042,7 @@ int main(int argc, char** argv, char** envp)
 			stop("Unknown backend mode specified in config file");
 		}
 
-		char* backend_forwarders = iniparser_getstring(config, backend_forwarders_key, NULL);
+		const char* backend_forwarders = iniparser_getstring(config, backend_forwarders_key, NULL);
 		if (unlikely(!backend_forwarders))
 		{
 			inform("Backend: %s\n", frontend_backend);
@@ -1068,14 +1068,14 @@ int main(int argc, char** argv, char** envp)
 			char* forwarder_check_query_key = pfcq_mstring("%s:%s", forwarder, "check_query");
 			char* forwarder_weight_key = pfcq_mstring("%s:%s", forwarder, "weight");
 
-			char* forwarder_host = iniparser_getstring(config, forwarder_host_key, NULL);
+			const char* forwarder_host = iniparser_getstring(config, forwarder_host_key, NULL);
 			if (unlikely(!forwarder_host))
 			{
 				inform("Forwarder: %s\n", forwarder);
 				stop("No forwarder host specified in config file");
 			}
 
-			char* forwarder_layer3 = iniparser_getstring(config, forwarder_layer3_key, NULL);
+			const char* forwarder_layer3 = iniparser_getstring(config, forwarder_layer3_key, NULL);
 			if (unlikely(!forwarder_layer3))
 			{
 				inform("Forwarder: %s\n", forwarder);
@@ -1119,7 +1119,7 @@ int main(int argc, char** argv, char** envp)
 				(size_t)iniparser_getint(config, forwarder_check_attempts_key, DB_DEFAULT_FORWARDER_CHECK_ATTEMPTS);
 			frontends[frontends_count]->backend.forwarders[frontends[frontends_count]->backend.forwarders_count]->check_timeout =
 				((uint64_t)iniparser_getint(config, forwarder_check_timeout_key, DB_DEFAULT_FORWARDER_CHECK_TIMEOUT)) * 1000ULL;
-			char* forwarder_check_query = iniparser_getstring(config, forwarder_check_query_key, NULL);
+			const char* forwarder_check_query = iniparser_getstring(config, forwarder_check_query_key, NULL);
 			if (unlikely(!forwarder_check_query))
 			{
 				inform("Forwarder: %s\n", forwarder);
@@ -1153,23 +1153,31 @@ int main(int argc, char** argv, char** envp)
 		pfcq_free(backend_mode_key);
 		pfcq_free(backend_forwarders_key);
 
-		char* frontend_acl = iniparser_getstring(config, frontend_acl_key, NULL);
+		const char* frontend_acl = iniparser_getstring(config, frontend_acl_key, NULL);
 		if (unlikely(!frontend_acl))
 		{
 			inform("Frontend: %s\n", frontend);
 			stop("No ACL specified in config file");
 		}
-		char** acl_items = iniparser_getseckeys(config, frontend_acl);
-		if (unlikely(!acl_items))
+		int acl_items_count = iniparser_getsecnkeys(config, frontend_acl);
+		if (unlikely(acl_items_count < 1))
 		{
 			inform("ACL: %s\n", frontend_acl);
 			stop("No ACLs found in config file");
 		}
-		int acl_items_count = iniparser_getsecnkeys(config, frontend_acl);
+		const char** acl_items = NULL;
+#ifdef DB_INIPARSER4
+		// IniParser 4 do not use internal malloc for iniparser_getseckeys anymore.
+		// Also see pfcq_free() vs. free() on acl_items below.
+		acl_items = pfcq_alloc(acl_items_count * sizeof(char*));
+		iniparser_getseckeys(config, frontend_acl, acl_items);
+#else /* DB_INIPARSER4 */
+		acl_items = iniparser_getseckeys(config, frontend_acl);
+#endif /* DB_INIPARSER4 */
 		TAILQ_INIT(&frontends[frontends_count]->acl);
 		for (int i = 0; i < acl_items_count; i++)
 		{
-			char* acl_item_expr = iniparser_getstring(config, acl_items[i], NULL);
+			const char* acl_item_expr = iniparser_getstring(config, acl_items[i], NULL);
 			char* acl_item_expr_i = pfcq_strdup(acl_item_expr);
 			char* acl_item_expr_p = acl_item_expr_i;
 
@@ -1236,7 +1244,11 @@ int main(int argc, char** argv, char** envp)
 
 			pfcq_free(acl_item_expr_p);
 		}
+#ifdef DB_INIPARSER4
+		pfcq_free(acl_items);
+#else /* DB_INIPARSER4 */
 		free(acl_items);
+#endif /* DB_INIPARSER4 */
 
 		pfcq_free(frontend_workers_key);
 		pfcq_free(frontend_dns_max_packet_length_key);

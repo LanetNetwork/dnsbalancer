@@ -1,4 +1,5 @@
 build_icc
+build_clang
 build_clang_analyzer
 build_debug
 build_release

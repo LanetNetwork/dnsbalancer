@@ -39,6 +39,10 @@ endif ("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")
 
 set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -DMODE_NORMAL")
 
+if (DB_INIPARSER4)
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDB_INIPARSER4")
+endif (DB_INIPARSER4)
+
 add_subdirectory(pfcquirks)
 add_subdirectory(pfpthquirks)
 
