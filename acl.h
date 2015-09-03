@@ -35,8 +35,24 @@ typedef enum db_acl_action
 {
 	DB_ACL_ACTION_ALLOW,
 	DB_ACL_ACTION_DENY,
-	DB_ACL_ACTION_NXDOMAIN
+	DB_ACL_ACTION_NXDOMAIN,
+	DB_ACL_ACTION_SET_A
 } db_acl_action_t;
+
+typedef union db_acl_action_parameters
+{
+	pfcq_in_address_t set_a_address;
+} db_acl_action_parameters_t;
+
+struct db_list_item
+{
+	TAILQ_ENTRY(db_list_item) tailq;
+	char* s_name;
+	char* s_regex;
+	regex_t regex;
+};
+
+TAILQ_HEAD(db_list, db_list_item);
 
 struct db_acl_item
 {
@@ -44,14 +60,16 @@ struct db_acl_item
 	char* s_layer3;
 	char* s_address;
 	char* s_netmask;
-	char* s_regex;
+	char* s_list;
 	char* s_action;
+	char* s_action_parameters;
 	sa_family_t layer3;
 	int __padding1:32;
 	pfcq_in_address_t address;
 	pfcq_in_address_t netmask;
-	regex_t regex;
+	struct db_list list;
 	db_acl_action_t action;
+	db_acl_action_parameters_t action_parameters;
 	pthread_spinlock_t hits_lock;
 	uint64_t hits;
 };

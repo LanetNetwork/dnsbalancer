@@ -618,6 +618,8 @@ static void* db_worker(void* _data)
 
 									goto denied;
 									break;
+								case DB_ACL_ACTION_SET_A:
+									break;
 								default:
 									panic("Unknown ACL action occurred");
 									break;
@@ -1184,16 +1186,18 @@ int main(int argc, char** argv, char** envp)
 			char* acl_item_layer3 = strsep(&acl_item_expr_i, "/");
 			char* acl_item_host = strsep(&acl_item_expr_i, "/");
 			char* acl_item_netmask = strsep(&acl_item_expr_i, "/");
-			char* acl_item_regex = strsep(&acl_item_expr_i, "/");
+			char* acl_item_list = strsep(&acl_item_expr_i, "/");
 			char* acl_item_action = strsep(&acl_item_expr_i, "/");
+			char* acl_item_action_parameters = strsep(&acl_item_expr_i, "/");
 
 			struct db_acl_item* new_acl_item = pfcq_alloc(sizeof(struct db_acl_item));
 
 			new_acl_item->s_layer3 = pfcq_strdup(acl_item_layer3);
 			new_acl_item->s_address = pfcq_strdup(acl_item_host);
 			new_acl_item->s_netmask = pfcq_strdup(acl_item_netmask);
-			new_acl_item->s_regex = pfcq_strdup(acl_item_regex);
+			new_acl_item->s_list = pfcq_strdup(acl_item_list);
 			new_acl_item->s_action = pfcq_strdup(acl_item_action);
+			new_acl_item->s_action_parameters = pfcq_strdup(acl_item_action_parameters);
 			if (unlikely(pthread_spin_init(&new_acl_item->hits_lock, PTHREAD_PROCESS_PRIVATE)))
 				panic("pthread_spin_init");
 
@@ -1224,17 +1228,50 @@ int main(int argc, char** argv, char** envp)
 					panic("socket domain");
 					break;
 			}
-			if (unlikely(regcomp(&new_acl_item->regex, acl_item_regex, REG_EXTENDED | REG_NOSUB)))
+			int list_items_count = iniparser_getsecnkeys(config, acl_item_list);
+			if (unlikely(list_items_count < 1))
 			{
-				inform("ACL: %s\n", frontend_acl);
-				stop("Unable to compile regex specified in config file");
+				inform("List: %s\n", acl_item_list);
+				stop("No list found in config file");
 			}
+#ifdef DB_INIPARSER4
+			const char** list_items = pfcq_alloc(acl_items_count * sizeof(char*));
+			iniparser_getseckeys(config, acl_item_list, list_items);
+#else /* DB_INIPARSER4 */
+			char** list_items = iniparser_getseckeys(config, acl_item_list);
+#endif /* DB_INIPARSER4 */
+			TAILQ_INIT(&new_acl_item->list);
+			for (int j = 0; j < list_items_count; j++)
+			{
+				const char* list_item = iniparser_getstring(config, list_items[j], NULL);
+				struct db_list_item* new_list_item = pfcq_alloc(sizeof(struct db_list_item));
+				new_list_item->s_name = pfcq_strdup(list_items[j]);
+				new_list_item->s_regex = pfcq_strdup(list_item);
+				if (unlikely(regcomp(&new_list_item->regex, list_item, REG_EXTENDED | REG_NOSUB)))
+				{
+					inform("List: %s\n", acl_item_list);
+					stop("Unable to compile regex specified in config file");
+				}
+				TAILQ_INSERT_TAIL(&new_acl_item->list, new_list_item, tailq);
+			}
+#ifdef DB_INIPARSER4
+			pfcq_free(list_items);
+#else /* DB_INIPARSER4 */
+			free(list_items);
+#endif /* DB_INIPARSER4 */
+
 			if (strcmp(acl_item_action, DB_CONFIG_ACL_ACTION_ALLOW) == 0)
 				new_acl_item->action = DB_ACL_ACTION_ALLOW;
 			else if (strcmp(acl_item_action, DB_CONFIG_ACL_ACTION_DENY) == 0)
 				new_acl_item->action = DB_ACL_ACTION_DENY;
 			else if (strcmp(acl_item_action, DB_CONFIG_ACL_ACTION_NXDOMAIN) == 0)
 				new_acl_item->action = DB_ACL_ACTION_NXDOMAIN;
+			else if (strcmp(acl_item_action, DB_CONFIG_ACL_ACTION_SET_A) == 0)
+			{
+				new_acl_item->action = DB_ACL_ACTION_SET_A;
+				if (unlikely(inet_pton(PF_INET, acl_item_action_parameters, &new_acl_item->action_parameters.set_a_address.address4) == -1))
+					panic("inet_pton");
+			}
 			else
 			{
 				inform("ACL: %s\n", frontend_acl);
@@ -1346,9 +1383,18 @@ int main(int argc, char** argv, char** envp)
 			pfcq_free(current_acl_item->s_layer3);
 			pfcq_free(current_acl_item->s_address);
 			pfcq_free(current_acl_item->s_netmask);
-			pfcq_free(current_acl_item->s_regex);
+			pfcq_free(current_acl_item->s_list);
 			pfcq_free(current_acl_item->s_action);
-			regfree(&current_acl_item->regex);
+			pfcq_free(current_acl_item->s_action_parameters);
+			while (likely(!TAILQ_EMPTY(&current_acl_item->list)))
+			{
+				struct db_list_item* current_list_item = TAILQ_FIRST(&current_acl_item->list);
+				TAILQ_REMOVE(&current_acl_item->list, current_list_item, tailq);
+				pfcq_free(current_list_item->s_name);
+				pfcq_free(current_list_item->s_regex);
+				regfree(&current_list_item->regex);
+				pfcq_free(current_list_item);
+			}
 			pthread_spin_destroy(&current_acl_item->hits_lock);
 			pfcq_free(current_acl_item);
 		}

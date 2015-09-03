@@ -260,7 +260,7 @@ static int db_answer_to_connection(void* _data,
 					panic("pthread_spin_unlock");
 				row = pfcq_mstring("%s,%s/%s,%s,%s,%lu\n", current_acl_item->s_layer3,
 						current_acl_item->s_address, current_acl_item->s_netmask,
-						current_acl_item->s_regex, current_acl_item->s_action,
+						current_acl_item->s_list, current_acl_item->s_action,
 						hits);
 				acls = pfcq_cstring(acls, row);
 				pfcq_free(row);

@@ -49,18 +49,26 @@ db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _add
 				panic("socket domain");
 				break;
 		}
-		if (address_matched && regexec(&current_acl_item->regex, _prehash->fqdn, 0, NULL, 0) == REG_NOERROR)
+		if (address_matched)
 		{
-			ret = current_acl_item->action;
-			if (unlikely(pthread_spin_lock(&current_acl_item->hits_lock)))
-				panic("pthread_spin_lock");
-			current_acl_item->hits++;
-			if (unlikely(pthread_spin_unlock(&current_acl_item->hits_lock)))
-				panic("pthread_spin_unlock");
-			break;
+			struct db_list_item* current_list_item = NULL;
+			TAILQ_FOREACH(current_list_item, &current_acl_item->list, tailq)
+			{
+				if (regexec(&current_list_item->regex, _prehash->fqdn, 0, NULL, 0) == REG_NOERROR)
+				{
+					ret = current_acl_item->action;
+					if (unlikely(pthread_spin_lock(&current_acl_item->hits_lock)))
+						panic("pthread_spin_lock");
+					current_acl_item->hits++;
+					if (unlikely(pthread_spin_unlock(&current_acl_item->hits_lock)))
+						panic("pthread_spin_unlock");
+					goto out;
+				}
+			}
 		}
 	}
 
+out:
 	return ret;
 }
 
