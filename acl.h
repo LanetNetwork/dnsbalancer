@@ -31,6 +31,13 @@
 #include <sys/queue.h>
 #include <sys/socket.h>
 
+typedef enum db_acl_matcher
+{
+	DB_ACL_MATCHER_STRICT,
+	DB_ACL_MATCHER_SUBDOMAIN,
+	DB_ACL_MATCHER_REGEX
+} db_acl_matcher_t;
+
 typedef enum db_acl_action
 {
 	DB_ACL_ACTION_ALLOW,
@@ -48,7 +55,9 @@ struct db_list_item
 {
 	TAILQ_ENTRY(db_list_item) tailq;
 	char* s_name;
-	char* s_regex;
+	char* s_value;
+	size_t s_value_length;
+	uint64_t s_value_hash;
 	regex_t regex;
 };
 
@@ -60,6 +69,7 @@ struct db_acl_item
 	char* s_layer3;
 	char* s_address;
 	char* s_netmask;
+	char* s_matcher;
 	char* s_list;
 	char* s_action;
 	char* s_action_parameters;
@@ -67,6 +77,8 @@ struct db_acl_item
 	int __padding1:32;
 	pfcq_in_address_t address;
 	pfcq_in_address_t netmask;
+	db_acl_matcher_t matcher;
+	int __padding2:32;
 	struct db_list list;
 	db_acl_action_t action;
 	db_acl_action_parameters_t action_parameters;

@@ -1186,6 +1186,7 @@ int main(int argc, char** argv, char** envp)
 			char* acl_item_layer3 = strsep(&acl_item_expr_i, "/");
 			char* acl_item_host = strsep(&acl_item_expr_i, "/");
 			char* acl_item_netmask = strsep(&acl_item_expr_i, "/");
+			char* acl_item_matcher = strsep(&acl_item_expr_i, "/");
 			char* acl_item_list = strsep(&acl_item_expr_i, "/");
 			char* acl_item_action = strsep(&acl_item_expr_i, "/");
 			char* acl_item_action_parameters = strsep(&acl_item_expr_i, "/");
@@ -1195,6 +1196,7 @@ int main(int argc, char** argv, char** envp)
 			new_acl_item->s_layer3 = pfcq_strdup(acl_item_layer3);
 			new_acl_item->s_address = pfcq_strdup(acl_item_host);
 			new_acl_item->s_netmask = pfcq_strdup(acl_item_netmask);
+			new_acl_item->s_matcher = pfcq_strdup(acl_item_matcher);
 			new_acl_item->s_list = pfcq_strdup(acl_item_list);
 			new_acl_item->s_action = pfcq_strdup(acl_item_action);
 			new_acl_item->s_action_parameters = pfcq_strdup(acl_item_action_parameters);
@@ -1228,6 +1230,18 @@ int main(int argc, char** argv, char** envp)
 					panic("socket domain");
 					break;
 			}
+			if (strcmp(acl_item_matcher, DB_CONFIG_ACL_MATCHER_STRICT) == 0)
+				new_acl_item->matcher = DB_ACL_MATCHER_STRICT;
+			else if (strcmp(acl_item_matcher, DB_CONFIG_ACL_MATCHER_SUBDOMAIN) == 0)
+				new_acl_item->matcher = DB_ACL_MATCHER_SUBDOMAIN;
+			else if (strcmp(acl_item_matcher, DB_CONFIG_ACL_MATCHER_REGEX) == 0)
+				new_acl_item->matcher = DB_ACL_MATCHER_REGEX;
+			else
+			{
+				inform("ACL: %s\n", frontend_acl);
+				stop("Unknown ACL matcher specified in config file");
+			}
+
 			int list_items_count = iniparser_getsecnkeys(config, acl_item_list);
 			if (unlikely(list_items_count < 1))
 			{
@@ -1246,11 +1260,25 @@ int main(int argc, char** argv, char** envp)
 				const char* list_item = iniparser_getstring(config, list_items[j], NULL);
 				struct db_list_item* new_list_item = pfcq_alloc(sizeof(struct db_list_item));
 				new_list_item->s_name = pfcq_strdup(list_items[j]);
-				new_list_item->s_regex = pfcq_strdup(list_item);
-				if (unlikely(regcomp(&new_list_item->regex, list_item, REG_EXTENDED | REG_NOSUB)))
+				new_list_item->s_value = pfcq_strdup(list_item);
+				new_list_item->s_value_length = strlen(new_list_item->s_value);
+				new_list_item->s_value_hash = crc64speed(0, (uint8_t*)new_list_item->s_value, new_list_item->s_value_length);
+				switch (new_acl_item->matcher)
 				{
-					inform("List: %s\n", acl_item_list);
-					stop("Unable to compile regex specified in config file");
+					case DB_ACL_MATCHER_STRICT:
+						break;
+					case DB_ACL_MATCHER_SUBDOMAIN:
+						break;
+					case DB_ACL_MATCHER_REGEX:
+						if (unlikely(regcomp(&new_list_item->regex, new_list_item->s_value, REG_EXTENDED | REG_NOSUB)))
+						{
+							inform("List: %s\n", acl_item_list);
+							stop("Unable to compile regex specified in config file");
+						}
+						break;
+					default:
+						panic("Unknown matcher");
+						break;
 				}
 				TAILQ_INSERT_TAIL(&new_acl_item->list, new_list_item, tailq);
 			}
@@ -1383,6 +1411,7 @@ int main(int argc, char** argv, char** envp)
 			pfcq_free(current_acl_item->s_layer3);
 			pfcq_free(current_acl_item->s_address);
 			pfcq_free(current_acl_item->s_netmask);
+			pfcq_free(current_acl_item->s_matcher);
 			pfcq_free(current_acl_item->s_list);
 			pfcq_free(current_acl_item->s_action);
 			pfcq_free(current_acl_item->s_action_parameters);
@@ -1391,8 +1420,20 @@ int main(int argc, char** argv, char** envp)
 				struct db_list_item* current_list_item = TAILQ_FIRST(&current_acl_item->list);
 				TAILQ_REMOVE(&current_acl_item->list, current_list_item, tailq);
 				pfcq_free(current_list_item->s_name);
-				pfcq_free(current_list_item->s_regex);
-				regfree(&current_list_item->regex);
+				pfcq_free(current_list_item->s_value);
+				switch (current_acl_item->matcher)
+				{
+					case DB_ACL_MATCHER_STRICT:
+						break;
+					case DB_ACL_MATCHER_SUBDOMAIN:
+						break;
+					case DB_ACL_MATCHER_REGEX:
+						regfree(&current_list_item->regex);
+						break;
+					default:
+						panic("Unknown matcher");
+						break;
+				}
 				pfcq_free(current_list_item);
 			}
 			pthread_spin_destroy(&current_acl_item->hits_lock);
