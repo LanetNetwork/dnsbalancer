@@ -52,6 +52,7 @@ include_directories(.
 
 add_executable(dnsbalancer
 	acl.c
+	acl_local.c
 	crcspeed.c
 	crc64speed.c
 	dnsbalancer.c
