@@ -59,6 +59,7 @@
 #define DB_CONFIG_HASH_L3					"hash_l3"
 #define DB_CONFIG_HASH_L4					"hash_l4"
 #define DB_CONFIG_LIST_SEPARATOR			","
+#define DB_CONFIG_PARAMETERS_SEPARATOR		"/"
 #define DB_CONFIG_ACL_MATCHER_STRICT		"strict"
 #define DB_CONFIG_ACL_MATCHER_SUBDOMAIN		"subdomain"
 #define DB_CONFIG_ACL_MATCHER_REGEX			"regex"
@@ -66,6 +67,8 @@
 #define DB_CONFIG_ACL_ACTION_DENY			"deny"
 #define DB_CONFIG_ACL_ACTION_NXDOMAIN		"nxdomain"
 #define DB_CONFIG_ACL_ACTION_SET_A			"set_a"
+#define DB_CONFIG_ACL_SOURCE_LOCAL			"local"
+#define DB_CONFIG_ACL_SOURCE_MYSQL			"mysql"
 #define DB_DEFAULT_RLIMIT					32768
 #define DB_DEFAULT_HASHLIST_SIZE			1024
 #define DB_DEFAULT_HASHLIST_TTL				10000

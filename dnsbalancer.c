@@ -1163,8 +1163,24 @@ int main(int argc, char** argv, char** envp)
 			inform("Frontend: %s\n", frontend);
 			stop("No ACL specified in config file");
 		}
+		char* frontend_acl_i = pfcq_strdup(frontend_acl);
+		char* frontend_acl_p = frontend_acl_i;
+		char* frontend_acl_source = strsep(&frontend_acl_i, DB_CONFIG_PARAMETERS_SEPARATOR);
 
-		db_acl_local_load(config, frontend_acl, &frontends[frontends_count]->acl);
+		if (strcmp(frontend_acl_source, DB_CONFIG_ACL_SOURCE_LOCAL) == 0)
+		{
+			char* frontend_acl_name = strsep(&frontend_acl_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+			db_acl_local_load(config, frontend_acl_name, &frontends[frontends_count]->acl);
+		} else if (strcmp(frontend_acl_source, DB_CONFIG_ACL_SOURCE_MYSQL) == 0)
+		{
+			panic("Not implemented");
+		} else
+		{
+			inform("Frontend: %s\n", frontend);
+			stop("Unknown ACL source specified in config file");
+		}
+
+		pfcq_free(frontend_acl_p);
 
 		pfcq_free(frontend_workers_key);
 		pfcq_free(frontend_dns_max_packet_length_key);

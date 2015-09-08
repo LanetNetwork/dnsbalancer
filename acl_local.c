@@ -47,13 +47,13 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 		char* acl_item_expr_i = pfcq_strdup(acl_item_expr);
 		char* acl_item_expr_p = acl_item_expr_i;
 
-		char* acl_item_layer3 = strsep(&acl_item_expr_i, "/");
-		char* acl_item_host = strsep(&acl_item_expr_i, "/");
-		char* acl_item_netmask = strsep(&acl_item_expr_i, "/");
-		char* acl_item_matcher = strsep(&acl_item_expr_i, "/");
-		char* acl_item_list = strsep(&acl_item_expr_i, "/");
-		char* acl_item_action = strsep(&acl_item_expr_i, "/");
-		char* acl_item_action_parameters = strsep(&acl_item_expr_i, "/");
+		char* acl_item_layer3 = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+		char* acl_item_host = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+		char* acl_item_netmask = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+		char* acl_item_matcher = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+		char* acl_item_list = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+		char* acl_item_action = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+		char* acl_item_action_parameters = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
 
 		struct db_acl_item* new_acl_item = pfcq_alloc(sizeof(struct db_acl_item));
 
