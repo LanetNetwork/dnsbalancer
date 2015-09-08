@@ -72,10 +72,13 @@ layer3=ipv4
 bind=127.0.0.1
 port=53
 backend=be_dns
-acl=acl_1
+acl=local/acl_1
 
 [acl_1]
-allow_all=ipv4/0.0.0.0/0/^.*$/allow
+allow_all=ipv4/0.0.0.0/0/regex/list_all/allow/null
+
+[list_all]
+0=^.*$
 
 [be_dns]
 mode=rr
@@ -135,6 +138,9 @@ but you may also want to specify 512 as it should work almost for all configurat
 * `backend` specifies backend name;
 * `acl` specifies ACL to check queries to frontend against (see below).
 
+ACL name has the following syntax: `source/name`, where source is `local`
+only for now to load ACL from config file.
+
 `backend_name` section holds backend-specific options:
 
 * `mode` specifies balancing mode (see details below);
@@ -174,7 +180,7 @@ INI sections and have the following syntax:
 
 ```ini
 [acl_name]
-some_comment=layer3_protocol/netaddress/netmask/regex/action
+some_comment=layer3_protocol/netaddress/netmask/matcher/listname/action/actionparameters
 ```
 
 That means:
@@ -184,8 +190,12 @@ That means:
 `ipv4` and `ipv6`);
 * `netaddress` and `netmask` specifies hosts that are subjected to current ACL step (please note that
 network mask is specified as decimal prefix like /0 or /24);
-* `regex` is POSIX Extended Regular Expression, query FQDN is matched against it;
-* `action` is, naturally, action performed against query in question (see below).
+* `matcher` is one of the following FQDN matcher: `strict` that matches the whole FQDN strictly (fastest one),
+`subdomain` that matches FQDN with all its subdomains and `regex` that matches FQDN against specified regex
+(slowest one);
+* `listname` is the name of FQDNs list;
+* `action` is, naturally, an action performed against query in question (see below);
+* `actionparameters` contains parameters to some actions (see below) or `null`;
 
 Currently valid action values are:
 
@@ -195,13 +205,6 @@ Currently valid action values are:
 
 ACL is examined step-by-step. Default ACL policy is to accept all queries. Also ACLs may be used to
 mangle queries in future, extending set of actions that may be performed against DNS packets.
-
-Again, here is small all-allowing example:
-
-```ini
-[dummy_acl]
-allow_all=ipv4/0.0.0.0/0/^.*$/allow
-```
 
 Finally, one may examine ACL stats via following URL:
 

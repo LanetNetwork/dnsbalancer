@@ -18,10 +18,13 @@ layer3=ipv6
 bind=::1
 port=53
 backend=be_dns
-acl=acl_1
+acl=local/acl_1
 
 [acl_1]
-allow_all=ipv6/::/0/^.*$/allow
+allow_all=ipv6/::/0/regex/list_all/allow/null
+
+[list_all]
+0=^.*$
 
 [be_dns]
 mode=rr
