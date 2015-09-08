@@ -22,6 +22,21 @@
 #include <crc64speed.h>
 #include <pthread.h>
 
+void db_acl_free_item(struct db_acl_item* _item)
+{
+	pfcq_free(_item->s_action_parameters);
+	pfcq_free(_item->s_action);
+	pfcq_free(_item->s_list);
+	pfcq_free(_item->s_matcher);
+	pfcq_free(_item->s_netmask);
+	pfcq_free(_item->s_address);
+	pfcq_free(_item->s_layer3);
+	pthread_spin_destroy(&_item->hits_lock);
+	pfcq_free(_item);
+
+	return;
+}
+
 db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _address, db_prehash_t* _prehash, struct db_acl* _acl)
 {
 	db_acl_action_t ret = DB_ACL_ACTION_ALLOW;

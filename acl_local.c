@@ -24,13 +24,15 @@
 #include <pfcq.h>
 #include <pthread.h>
 
-void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl* _acl)
+int db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl* _acl)
 {
+	int ret = -1;
+
 	int acl_items_count = iniparser_getsecnkeys(_config, _acl_name);
 	if (unlikely(acl_items_count < 1))
 	{
-		inform("ACL: %s\n", _acl_name);
-		stop("No ACLs found in config file");
+		inform("No ACL %s found in config file\n", _acl_name);
+		goto out;
 	}
 #ifdef DB_INIPARSER4
 	// IniParser 4 do not use internal malloc for iniparser_getseckeys anymore.
@@ -48,12 +50,49 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 		char* acl_item_expr_p = acl_item_expr_i;
 
 		char* acl_item_layer3 = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+		if (unlikely(!acl_item_layer3))
+		{
+			inform("ACL: %s, no layer 3 specified\n", _acl_name);
+			goto free_acl_items;
+		}
+
 		char* acl_item_host = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+		if (unlikely(!acl_item_host))
+		{
+			inform("ACL: %s, no host specified\n", _acl_name);
+			goto free_acl_items;
+		}
+
 		char* acl_item_netmask = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+		if (unlikely(!acl_item_netmask))
+		{
+			inform("ACL: %s, no netmask specified\n", _acl_name);
+			goto free_acl_items;
+		}
 		char* acl_item_matcher = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+		if (unlikely(!acl_item_matcher))
+		{
+			inform("ACL: %s, no matcher specified\n", _acl_name);
+			goto free_acl_items;
+		}
 		char* acl_item_list = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+		if (unlikely(!acl_item_list))
+		{
+			inform("ACL: %s, no list specified\n", _acl_name);
+			goto free_acl_items;
+		}
 		char* acl_item_action = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+		if (unlikely(!acl_item_action))
+		{
+			inform("ACL: %s, no action specified\n", _acl_name);
+			goto free_acl_items;
+		}
 		char* acl_item_action_parameters = strsep(&acl_item_expr_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+		if (unlikely(!acl_item_action_parameters))
+		{
+			inform("ACL: %s, no action parameters specified\n", _acl_name);
+			goto free_acl_items;
+		}
 
 		struct db_acl_item* new_acl_item = pfcq_alloc(sizeof(struct db_acl_item));
 
@@ -73,19 +112,29 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 			new_acl_item->layer3 = PF_INET6;
 		else
 		{
-			inform("ACL: %s\n", _acl_name);
-			stop("Unknown ACL L3 protocol specified in config file");
+			inform("ACL: %s, unknown layer 3 protocol specified in config file\n", _acl_name);
+			db_acl_free_item(new_acl_item);
+			goto free_acl_items;
 		}
+
 		switch (new_acl_item->layer3)
 		{
 			case PF_INET:
 				if (unlikely(inet_pton(new_acl_item->layer3, acl_item_host, &new_acl_item->address.address4) == -1))
-					panic("inet_pton");
+				{
+					inform("ACL: %s, unknown host specified in config file\n", _acl_name);
+					db_acl_free_item(new_acl_item);
+					goto free_acl_items;
+				}
 				new_acl_item->netmask.address4.s_addr = htonl((~0UL) << (32 - strtol(acl_item_netmask, NULL, 10)));
 				break;
 			case PF_INET6:
 				if (unlikely(inet_pton(new_acl_item->layer3, acl_item_host, &new_acl_item->address.address6) == -1))
-					panic("inet_pton");
+				{
+					inform("ACL: %s, unknown host specified in config file\n", _acl_name);
+					db_acl_free_item(new_acl_item);
+					goto free_acl_items;
+				}
 				pfcq_zero(&new_acl_item->netmask.address6, sizeof(struct in6_addr));
 				for (long j = 0; j < strtol(acl_item_netmask, NULL, 10); j++)
 					new_acl_item->netmask.address6.s6_addr[j / 8] |= (uint8_t)(1 << (j % 8));
@@ -102,15 +151,17 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 			new_acl_item->matcher = DB_ACL_MATCHER_REGEX;
 		else
 		{
-			inform("ACL: %s\n", _acl_name);
-			stop("Unknown ACL matcher specified in config file");
+			inform("ACL: %s, unknown matcher specified in config file\n", _acl_name);
+			db_acl_free_item(new_acl_item);
+			goto free_acl_items;
 		}
 
 		int list_items_count = iniparser_getsecnkeys(_config, acl_item_list);
 		if (unlikely(list_items_count < 1))
 		{
-			inform("List: %s\n", acl_item_list);
-			stop("No list found in config file");
+			inform("ACL: %s, list: %s, no list found in config file\n", _acl_name, acl_item_list);
+			db_acl_free_item(new_acl_item);
+			goto free_acl_items;
 		}
 #ifdef DB_INIPARSER4
 		const char** list_items = pfcq_alloc(acl_items_count * sizeof(char*));
@@ -173,12 +224,17 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 
 		pfcq_free(acl_item_expr_p);
 	}
+
+	ret = 1;
+
+free_acl_items:
 #ifdef DB_INIPARSER4
 	pfcq_free(acl_items);
 #else /* DB_INIPARSER4 */
 	free(acl_items);
 #endif /* DB_INIPARSER4 */
 
-	return;
+out:
+	return ret;
 }
 

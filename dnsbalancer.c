@@ -1275,13 +1275,6 @@ int main(int argc, char** argv, char** envp)
 		{
 			struct db_acl_item* current_acl_item = TAILQ_FIRST(&frontends[i]->acl);
 			TAILQ_REMOVE(&frontends[i]->acl, current_acl_item, tailq);
-			pfcq_free(current_acl_item->s_layer3);
-			pfcq_free(current_acl_item->s_address);
-			pfcq_free(current_acl_item->s_netmask);
-			pfcq_free(current_acl_item->s_matcher);
-			pfcq_free(current_acl_item->s_list);
-			pfcq_free(current_acl_item->s_action);
-			pfcq_free(current_acl_item->s_action_parameters);
 			while (likely(!TAILQ_EMPTY(&current_acl_item->list)))
 			{
 				struct db_list_item* current_list_item = TAILQ_FIRST(&current_acl_item->list);
@@ -1303,8 +1296,7 @@ int main(int argc, char** argv, char** envp)
 				}
 				pfcq_free(current_list_item);
 			}
-			pthread_spin_destroy(&current_acl_item->hits_lock);
-			pfcq_free(current_acl_item);
+			db_acl_free_item(current_acl_item);
 		}
 	}
 	for (size_t i = 0; i < frontends_count; i++)

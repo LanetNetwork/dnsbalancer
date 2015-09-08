@@ -88,6 +88,7 @@ struct db_acl_item
 
 TAILQ_HEAD(db_acl, db_acl_item);
 
+void db_acl_free_item(struct db_acl_item* _item) __attribute__((nonnull(1)));
 db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _address, db_prehash_t* _prehash, struct db_acl* _acl) __attribute__((nonnull(2, 3, 4)));
 
 #endif /* __ACL_H__ */
