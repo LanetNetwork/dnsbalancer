@@ -167,8 +167,9 @@ typedef struct db_frontend
 	pfpthq_pool_t* workers_pool;
 	pthread_t* workers_id;
 	int workers;
-	unsigned short int __padding2;
+	db_acl_source_t acl_source;
 	sa_family_t layer3;
+	int __padding1:32;
 	db_backend_t backend;
 	db_frontend_stats_t stats;
 	struct db_acl acl;

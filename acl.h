@@ -31,6 +31,12 @@
 #include <sys/queue.h>
 #include <sys/socket.h>
 
+typedef enum db_acl_source
+{
+	DB_ACL_SOURCE_LOCAL,
+	DB_ACL_SOURCE_MYSQL
+} db_acl_source_t;
+
 typedef enum db_acl_matcher
 {
 	DB_ACL_MATCHER_STRICT,

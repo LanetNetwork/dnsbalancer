@@ -253,3 +253,21 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 	return;
 }
 
+void db_acl_local_unload(struct db_acl* _acl)
+{
+	while (likely(!TAILQ_EMPTY(_acl)))
+	{
+		struct db_acl_item* current_acl_item = TAILQ_FIRST(_acl);
+		TAILQ_REMOVE(_acl, current_acl_item, tailq);
+		while (likely(!TAILQ_EMPTY(&current_acl_item->list)))
+		{
+			struct db_list_item* current_list_item = TAILQ_FIRST(&current_acl_item->list);
+			TAILQ_REMOVE(&current_acl_item->list, current_list_item, tailq);
+			db_acl_free_list_item(current_list_item);
+		}
+		db_acl_free_item(current_acl_item);
+	}
+
+	return;
+}
+

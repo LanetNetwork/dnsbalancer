@@ -1170,9 +1170,11 @@ int main(int argc, char** argv, char** envp)
 		if (strcmp(frontend_acl_source, DB_CONFIG_ACL_SOURCE_LOCAL) == 0)
 		{
 			char* frontend_acl_name = strsep(&frontend_acl_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+			frontends[frontends_count]->acl_source = DB_ACL_SOURCE_LOCAL;
 			db_acl_local_load(config, frontend_acl_name, &frontends[frontends_count]->acl);
 		} else if (strcmp(frontend_acl_source, DB_CONFIG_ACL_SOURCE_MYSQL) == 0)
 		{
+			frontends[frontends_count]->acl_source = DB_ACL_SOURCE_MYSQL;
 			panic("Not implemented");
 		} else
 		{
@@ -1271,17 +1273,17 @@ int main(int argc, char** argv, char** envp)
 			panic("pthread_spin_destroy");
 		if (unlikely(pthread_spin_destroy(&frontends[i]->backend.queries_lock)))
 			panic("pthread_spin_destroy");
-		while (likely(!TAILQ_EMPTY(&frontends[i]->acl)))
+		switch (frontends[i]->acl_source)
 		{
-			struct db_acl_item* current_acl_item = TAILQ_FIRST(&frontends[i]->acl);
-			TAILQ_REMOVE(&frontends[i]->acl, current_acl_item, tailq);
-			while (likely(!TAILQ_EMPTY(&current_acl_item->list)))
-			{
-				struct db_list_item* current_list_item = TAILQ_FIRST(&current_acl_item->list);
-				TAILQ_REMOVE(&current_acl_item->list, current_list_item, tailq);
-				db_acl_free_list_item(current_list_item);
-			}
-			db_acl_free_item(current_acl_item);
+			case DB_ACL_SOURCE_LOCAL:
+				db_acl_local_unload(&frontends[i]->acl);
+				break;
+			case DB_ACL_SOURCE_MYSQL:
+				panic("Not implemented");
+				break;
+			default:
+				panic("Unknown source");
+				break;
 		}
 	}
 	for (size_t i = 0; i < frontends_count; i++)
