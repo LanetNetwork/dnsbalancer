@@ -1279,22 +1279,7 @@ int main(int argc, char** argv, char** envp)
 			{
 				struct db_list_item* current_list_item = TAILQ_FIRST(&current_acl_item->list);
 				TAILQ_REMOVE(&current_acl_item->list, current_list_item, tailq);
-				pfcq_free(current_list_item->s_name);
-				pfcq_free(current_list_item->s_value);
-				switch (current_acl_item->matcher)
-				{
-					case DB_ACL_MATCHER_STRICT:
-						break;
-					case DB_ACL_MATCHER_SUBDOMAIN:
-						break;
-					case DB_ACL_MATCHER_REGEX:
-						regfree(&current_list_item->regex);
-						break;
-					default:
-						panic("Unknown matcher");
-						break;
-				}
-				pfcq_free(current_list_item);
+				db_acl_free_list_item(current_list_item);
 			}
 			db_acl_free_item(current_acl_item);
 		}

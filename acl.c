@@ -37,6 +37,17 @@ void db_acl_free_item(struct db_acl_item* _item)
 	return;
 }
 
+void db_acl_free_list_item(struct db_list_item* _item)
+{
+	pfcq_free(_item->s_name);
+	pfcq_free(_item->s_value);
+	if (likely(_item->regex_compiled))
+		regfree(&_item->regex);
+	pfcq_free(_item);
+
+	return;
+}
+
 db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _address, db_prehash_t* _prehash, struct db_acl* _acl)
 {
 	db_acl_action_t ret = DB_ACL_ACTION_ALLOW;
