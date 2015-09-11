@@ -23,8 +23,7 @@
 #include <stats.h>
 #include <string.h>
 
-extern db_frontend_t** frontends;
-extern size_t frontends_count;
+static db_context_t* ctx = NULL;
 static struct MHD_Daemon* mhd_daemon = NULL;
 
 void db_stats_frontend_in(db_frontend_t* _frontend, uint64_t _delta_bytes)
@@ -198,11 +197,11 @@ static int db_answer_to_connection(void* _data,
 	if (strcmp(_url, "/stats") == 0)
 	{
 		char* stats = pfcq_mstring("%s\n", "# name,FRONTEND,in_pkts,in_bytes,in_invalid_pkts,in_invalid_bytes,out_pkts,out_bytes,noerror,servfail,nxdomain,refused,other");
-		for (size_t i = 0; i < frontends_count; i++)
+		for (size_t i = 0; i < ctx->frontends_count; i++)
 		{
-			db_frontend_stats_t fe_stats = db_stats_frontend(frontends[i]);
+			db_frontend_stats_t fe_stats = db_stats_frontend(ctx->frontends[i]);
 			char* row = pfcq_mstring("%s,FRONTEND,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu\n",
-					frontends[i]->name,
+					ctx->frontends[i]->name,
 					fe_stats.in_pkts, fe_stats.in_bytes,
 					fe_stats.in_pkts_invalid, fe_stats.in_bytes_invalid,
 					fe_stats.out_pkts, fe_stats.out_bytes,
@@ -211,13 +210,13 @@ static int db_answer_to_connection(void* _data,
 			pfcq_free(row);
 		}
 		stats = pfcq_cstring(stats, "# name,FORWARDER,frontend_name,in_pkts,in_bytes,out_pkts,out_bytes,noerror,servfail,nxdomain,refused,other\n");
-		for (size_t i = 0; i < frontends_count; i++)
-			for (size_t j = 0; j < frontends[i]->backend.forwarders_count; j++)
+		for (size_t i = 0; i < ctx->frontends_count; i++)
+			for (size_t j = 0; j < ctx->frontends[i]->backend.forwarders_count; j++)
 			{
-				db_forwarder_stats_t frw_stats = db_stats_forwarder(frontends[i]->backend.forwarders[j]);
+				db_forwarder_stats_t frw_stats = db_stats_forwarder(ctx->frontends[i]->backend.forwarders[j]);
 				char* row = pfcq_mstring("%s,FORWARDER,%s,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu\n",
-						frontends[i]->backend.forwarders[j]->name,
-						frontends[i]->name,
+						ctx->frontends[i]->backend.forwarders[j]->name,
+						ctx->frontends[i]->name,
 						frw_stats.in_pkts, frw_stats.in_bytes,
 						frw_stats.out_pkts, frw_stats.out_bytes,
 						frw_stats.out_noerror, frw_stats.out_servfail, frw_stats.out_nxdomain, frw_stats.out_refused, frw_stats.out_other);
@@ -239,19 +238,19 @@ static int db_answer_to_connection(void* _data,
 	} else if (strcmp(_url, "/acls") == 0)
 	{
 		char* acls = pfcq_mstring("%s\n", "# ACLs");
-		for (size_t i = 0; i < frontends_count; i++)
+		for (size_t i = 0; i < ctx->frontends_count; i++)
 		{
 			char* row = NULL;
 			struct db_acl_item* current_acl_item = NULL;
 
-			row = pfcq_mstring("# %s,FRONTEND\n", frontends[i]->name);
+			row = pfcq_mstring("# %s,FRONTEND\n", ctx->frontends[i]->name);
 			acls = pfcq_cstring(acls, row);
 			pfcq_free(row);
 			row = pfcq_mstring("%s\n", "# layer3,address/netmask,regex,action,hits");
 			acls = pfcq_cstring(acls, row);
 			pfcq_free(row);
 
-			TAILQ_FOREACH(current_acl_item, &frontends[i]->acl, tailq)
+			TAILQ_FOREACH(current_acl_item, &ctx->frontends[i]->acl, tailq)
 			{
 				if (unlikely(pthread_spin_lock(&current_acl_item->hits_lock)))
 					panic("pthread_spin_lock");
@@ -285,8 +284,10 @@ out:
 	return ret;
 }
 
-void db_stats_init(unsigned short int _enabled, sa_family_t _layer3_family, pfcq_net_address_t* _address)
+void db_stats_init(db_context_t* _ctx, unsigned short int _enabled, sa_family_t _layer3_family, pfcq_net_address_t* _address)
 {
+	ctx = _ctx;
+
 	if (_enabled)
 	{
 		unsigned int options = MHD_USE_SELECT_INTERNALLY | MHD_USE_EPOLL_LINUX_ONLY;
@@ -325,6 +326,7 @@ void db_stats_done(void)
 {
 	if (mhd_daemon)
 		MHD_stop_daemon(mhd_daemon);
+	ctx = NULL;
 
 	return;
 }

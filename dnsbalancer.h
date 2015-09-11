@@ -25,6 +25,7 @@
 
 #include <acl.h>
 #include <errno.h>
+#include <hashitems.h>
 #include <pfcq.h>
 #include <pfpthq.h>
 #include <sys/queue.h>
@@ -159,6 +160,8 @@ typedef struct db_frontend_stats
 	int __padding1;
 } db_frontend_stats_t;
 
+typedef struct db_context db_context_t;
+
 typedef struct db_frontend
 {
 	char* name;
@@ -170,10 +173,21 @@ typedef struct db_frontend
 	db_acl_source_t acl_source;
 	sa_family_t layer3;
 	int __padding1:32;
+	db_context_t* ctx;
 	db_backend_t backend;
 	db_frontend_stats_t stats;
 	struct db_acl acl;
 } db_frontend_t;
+
+struct db_context
+{
+	db_frontend_t** frontends;
+	size_t frontends_count;
+	db_hashlist_t db_hashlist;
+	pfpthq_pool_t* gc_pool;
+	pthread_t gc_id;
+	uint64_t db_gc_interval;
+};
 
 #endif /* __DNSBALANCER_H__ */
 
