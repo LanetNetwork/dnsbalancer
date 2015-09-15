@@ -26,6 +26,7 @@
 #include <dnsbalancer.h>
 
 db_local_context_t* db_local_context_load(const char* _config_file, db_global_context_t* _g_ctx) __attribute__((nonnull(1, 2)));
+void db_local_context_unload(db_local_context_t* _l_ctx) __attribute__((nonnull(1)));
 
 #endif /* __LOCAL_CONTEXT_H__ */
 

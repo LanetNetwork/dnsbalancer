@@ -1056,3 +1056,56 @@ db_local_context_t* db_local_context_load(const char* _config_file, db_global_co
 	return ret;
 }
 
+void db_local_context_unload(db_local_context_t* _l_ctx)
+{
+	for (size_t i = 0; i < _l_ctx->frontends_count; i++)
+	{
+		for (int j = 0; j < _l_ctx->frontends[i]->workers; j++)
+			if (unlikely(pthread_kill(_l_ctx->frontends[i]->workers_id[j], SIGINT)))
+				panic("pthread_kill");
+		pfpthq_wait(_l_ctx->frontends[i]->workers_pool);
+		pfpthq_done(_l_ctx->frontends[i]->workers_pool);
+		for (size_t j = 0; j < _l_ctx->frontends[i]->backend.forwarders_count; j++)
+		{
+			pfcq_free(_l_ctx->frontends[i]->backend.forwarders[j]->name);
+			pfcq_free(_l_ctx->frontends[i]->backend.forwarders[j]->check_query);
+			if (unlikely(pthread_spin_destroy(&_l_ctx->frontends[i]->backend.forwarders[j]->stats.in_lock)))
+				panic("pthread_spin_destroy");
+			if (unlikely(pthread_spin_destroy(&_l_ctx->frontends[i]->backend.forwarders[j]->stats.out_lock)))
+				panic("pthread_spin_destroy");
+			pfcq_free(_l_ctx->frontends[i]->backend.forwarders[j]);
+		}
+		pfcq_free(_l_ctx->frontends[i]->backend.forwarders);
+		pfcq_free(_l_ctx->frontends[i]->workers_id);
+		pfcq_free(_l_ctx->frontends[i]->name);
+		if (unlikely(pthread_spin_destroy(&_l_ctx->frontends[i]->stats.in_lock)))
+			panic("pthread_spin_destroy");
+		if (unlikely(pthread_spin_destroy(&_l_ctx->frontends[i]->stats.out_lock)))
+			panic("pthread_spin_destroy");
+		if (unlikely(pthread_spin_destroy(&_l_ctx->frontends[i]->stats.in_invalid_lock)))
+			panic("pthread_spin_destroy");
+		if (unlikely(pthread_spin_destroy(&_l_ctx->frontends[i]->backend.queries_lock)))
+			panic("pthread_spin_destroy");
+		switch (_l_ctx->frontends[i]->acl_source)
+		{
+			case DB_ACL_SOURCE_LOCAL:
+				db_acl_local_unload(&_l_ctx->frontends[i]->acl);
+				break;
+			case DB_ACL_SOURCE_MYSQL:
+				panic("Not implemented");
+				break;
+			default:
+				panic("Unknown source");
+				break;
+		}
+	}
+	for (size_t i = 0; i < _l_ctx->frontends_count; i++)
+		pfcq_free(_l_ctx->frontends[i]);
+	pfcq_free(_l_ctx->frontends);
+
+	pfpthq_wait(_l_ctx->watchdog_pool);
+	pfpthq_done(_l_ctx->watchdog_pool);
+
+	pfcq_free(_l_ctx);
+}
+

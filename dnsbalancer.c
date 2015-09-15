@@ -255,56 +255,7 @@ int main(int argc, char** argv, char** envp)
 
 	db_stats_done();
 
-	for (size_t i = 0; i < l_ctx->frontends_count; i++)
-	{
-		for (int j = 0; j < l_ctx->frontends[i]->workers; j++)
-			if (unlikely(pthread_kill(l_ctx->frontends[i]->workers_id[j], SIGINT)))
-				panic("pthread_kill");
-		pfpthq_wait(l_ctx->frontends[i]->workers_pool);
-		pfpthq_done(l_ctx->frontends[i]->workers_pool);
-		for (size_t j = 0; j < l_ctx->frontends[i]->backend.forwarders_count; j++)
-		{
-			pfcq_free(l_ctx->frontends[i]->backend.forwarders[j]->name);
-			pfcq_free(l_ctx->frontends[i]->backend.forwarders[j]->check_query);
-			if (unlikely(pthread_spin_destroy(&l_ctx->frontends[i]->backend.forwarders[j]->stats.in_lock)))
-				panic("pthread_spin_destroy");
-			if (unlikely(pthread_spin_destroy(&l_ctx->frontends[i]->backend.forwarders[j]->stats.out_lock)))
-				panic("pthread_spin_destroy");
-			pfcq_free(l_ctx->frontends[i]->backend.forwarders[j]);
-		}
-		pfcq_free(l_ctx->frontends[i]->backend.forwarders);
-		pfcq_free(l_ctx->frontends[i]->workers_id);
-		pfcq_free(l_ctx->frontends[i]->name);
-		if (unlikely(pthread_spin_destroy(&l_ctx->frontends[i]->stats.in_lock)))
-			panic("pthread_spin_destroy");
-		if (unlikely(pthread_spin_destroy(&l_ctx->frontends[i]->stats.out_lock)))
-			panic("pthread_spin_destroy");
-		if (unlikely(pthread_spin_destroy(&l_ctx->frontends[i]->stats.in_invalid_lock)))
-			panic("pthread_spin_destroy");
-		if (unlikely(pthread_spin_destroy(&l_ctx->frontends[i]->backend.queries_lock)))
-			panic("pthread_spin_destroy");
-		switch (l_ctx->frontends[i]->acl_source)
-		{
-			case DB_ACL_SOURCE_LOCAL:
-				db_acl_local_unload(&l_ctx->frontends[i]->acl);
-				break;
-			case DB_ACL_SOURCE_MYSQL:
-				panic("Not implemented");
-				break;
-			default:
-				panic("Unknown source");
-				break;
-		}
-	}
-	for (size_t i = 0; i < l_ctx->frontends_count; i++)
-		pfcq_free(l_ctx->frontends[i]);
-	pfcq_free(l_ctx->frontends);
-
-	pfpthq_wait(l_ctx->watchdog_pool);
-	pfpthq_done(l_ctx->watchdog_pool);
-
-	pfcq_free(l_ctx);
-
+	db_local_context_unload(l_ctx);
 	pfpthq_wait(g_ctx->gc_pool);
 	pfpthq_done(g_ctx->gc_pool);
 
