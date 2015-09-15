@@ -189,6 +189,10 @@ struct db_local_context
 	pfpthq_pool_t* watchdog_pool;
 	pthread_t watchdog_id;
 	uint64_t db_watchdog_interval;
+	unsigned short int stats_enabled;
+	sa_family_t stats_layer3_family;
+	int __padding1;
+	pfcq_net_address_t stats_address;
 };
 
 struct db_global_context

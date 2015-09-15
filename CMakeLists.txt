@@ -58,6 +58,7 @@ add_executable(dnsbalancer
 	dnsbalancer.c
 	hash.c
 	hashitems.c
+	local_context.c
 	stats.c)
 
 target_link_libraries(dnsbalancer

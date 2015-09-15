@@ -284,14 +284,14 @@ out:
 	return ret;
 }
 
-void db_stats_init(db_local_context_t* _ctx, unsigned short int _enabled, sa_family_t _layer3_family, pfcq_net_address_t* _address)
+void db_stats_init(db_local_context_t* _ctx)
 {
 	ctx = _ctx;
 
-	if (_enabled)
+	if (ctx->stats_enabled)
 	{
 		unsigned int options = MHD_USE_SELECT_INTERNALLY | MHD_USE_EPOLL_LINUX_ONLY;
-		switch (_layer3_family)
+		switch (ctx->stats_layer3_family)
 		{
 			case PF_INET:
 				mhd_daemon =
@@ -299,7 +299,7 @@ void db_stats_init(db_local_context_t* _ctx, unsigned short int _enabled, sa_fam
 							0, NULL, NULL, &db_answer_to_connection, NULL,
 							MHD_OPTION_THREAD_POOL_SIZE, 1,
 							MHD_OPTION_SOCK_ADDR,
-							(struct sockaddr*)&_address->address4,
+							(struct sockaddr*)&ctx->stats_address.address4,
 							MHD_OPTION_END);
 				break;
 			case PF_INET6:
@@ -308,7 +308,7 @@ void db_stats_init(db_local_context_t* _ctx, unsigned short int _enabled, sa_fam
 							0, NULL, NULL, &db_answer_to_connection, NULL,
 							MHD_OPTION_THREAD_POOL_SIZE, 1,
 							MHD_OPTION_SOCK_ADDR,
-							(struct sockaddr*)&_address->address6,
+							(struct sockaddr*)&ctx->stats_address.address6,
 							MHD_OPTION_END);
 				break;
 			default:

@@ -20,18 +20,12 @@
 
 #pragma once
 
-#ifndef __STATS_H__
-#define __STATS_H__
+#ifndef __LOCAL_CONTEXT_H__
+#define __LOCAL_CONTEXT_H__
 
 #include <dnsbalancer.h>
 
-void db_stats_frontend_in(db_frontend_t* _frontend, uint64_t _delta_bytes) __attribute__((nonnull(1)));
-void db_stats_frontend_in_invalid(db_frontend_t* _frontend, uint64_t _delta_bytes) __attribute__((nonnull(1)));
-void db_stats_frontend_out(db_frontend_t* _frontend, uint64_t _delta_bytes, ldns_pkt_rcode _rcode) __attribute__((nonnull(1)));
-void db_stats_forwarder_in(db_forwarder_t* _forwarder, uint64_t _delta_bytes) __attribute__((nonnull(1)));
-void db_stats_forwarder_out(db_forwarder_t* _forwarder, uint64_t _delta_bytes, ldns_pkt_rcode _rcode) __attribute__((nonnull(1)));
-void db_stats_init(db_local_context_t* _ctx) __attribute__((nonnull(1)));
-void db_stats_done(void);
+db_local_context_t* db_local_context_load(const char* _config_file, db_global_context_t* _g_ctx) __attribute__((nonnull(1, 2)));
 
-#endif /* __STATS_H__ */
+#endif /* __LOCAL_CONTEXT_H__ */
 
