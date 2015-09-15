@@ -1114,5 +1114,7 @@ void db_local_context_unload(db_local_context_t* _l_ctx)
 	pfpthq_done(_l_ctx->watchdog_pool);
 
 	pfcq_free(_l_ctx);
+
+	return;
 }
 

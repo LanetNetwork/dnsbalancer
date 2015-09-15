@@ -104,5 +104,23 @@ db_global_context_t* db_global_context_load(const char* _config_file)
 
 void db_global_context_unload(db_global_context_t* _g_ctx)
 {
+	pfpthq_wait(_g_ctx->gc_pool);
+	pfpthq_done(_g_ctx->gc_pool);
+
+	for (size_t i = 0; i < _g_ctx->db_hashlist.size; i++)
+	{
+		while (likely(!TAILQ_EMPTY(&_g_ctx->db_hashlist.list[i].items)))
+		{
+			struct db_item* current_item = TAILQ_FIRST(&_g_ctx->db_hashlist.list[i].items);
+			db_destroy_item_unsafe(&_g_ctx->db_hashlist, i, current_item);
+		}
+		if (unlikely(pthread_mutex_destroy(&_g_ctx->db_hashlist.list[i].lock)))
+			panic("pthread_mutex_destroy");
+	}
+	pfcq_free(_g_ctx->db_hashlist.list);
+
+	pfcq_free(_g_ctx);
+
+	return;
 }
 

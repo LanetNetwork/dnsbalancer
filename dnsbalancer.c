@@ -179,22 +179,7 @@ int main(int argc, char** argv, char** envp)
 	db_stats_done();
 
 	db_local_context_unload(l_ctx);
-	pfpthq_wait(g_ctx->gc_pool);
-	pfpthq_done(g_ctx->gc_pool);
-
-	for (size_t i = 0; i < g_ctx->db_hashlist.size; i++)
-	{
-		while (likely(!TAILQ_EMPTY(&g_ctx->db_hashlist.list[i].items)))
-		{
-			struct db_item* current_item = TAILQ_FIRST(&g_ctx->db_hashlist.list[i].items);
-			db_destroy_item_unsafe(&g_ctx->db_hashlist, i, current_item);
-		}
-		if (unlikely(pthread_mutex_destroy(&g_ctx->db_hashlist.list[i].lock)))
-			panic("pthread_mutex_destroy");
-	}
-	pfcq_free(g_ctx->db_hashlist.list);
-
-	pfcq_free(g_ctx);
+	db_global_context_unload(g_ctx);
 
 	if (unlikely(pthread_sigmask(SIG_UNBLOCK, &db_newmask, NULL) != 0))
 		panic("pthread_sigmask");
