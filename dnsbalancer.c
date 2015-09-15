@@ -18,19 +18,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <acl_local.h>
 #include <bsd/unistd.h>
 #include <crc64speed.h>
 #include <getopt.h>
 #include <global_context.h>
-#include <hashitems.h>
-#include <iniparser.h>
-#include <ldns/ldns.h>
 #include <local_context.h>
 #include <pfcq.h>
 #include <signal.h>
 #include <stats.h>
-#include <sys/epoll.h>
 #include <sysexits.h>
 
 volatile sig_atomic_t should_exit = 0;
