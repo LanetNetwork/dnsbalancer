@@ -25,6 +25,9 @@
 #include <signal.h>
 #include <stats.h>
 #include <sys/epoll.h>
+#ifndef MODE_DEBUG
+#include <sys/resource.h>
+#endif
 
 extern volatile sig_atomic_t should_exit;
 
@@ -707,6 +710,10 @@ db_local_context_t* db_local_context_load(const char* _config_file, db_global_co
 {
 	db_local_context_t* ret = NULL;
 	dictionary* config = NULL;
+#ifndef MODE_DEBUG
+	rlim_t limit;
+	struct rlimit limits;
+#endif
 
 	config = iniparser_load(_config_file);
 	if (unlikely(!config))

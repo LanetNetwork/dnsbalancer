@@ -22,6 +22,7 @@
 #include <bsd/unistd.h>
 #include <crc64speed.h>
 #include <getopt.h>
+#include <global_context.h>
 #include <hashitems.h>
 #include <iniparser.h>
 #include <ldns/ldns.h>
@@ -30,9 +31,6 @@
 #include <signal.h>
 #include <stats.h>
 #include <sys/epoll.h>
-#ifndef MODE_DEBUG
-#include <sys/resource.h>
-#endif
 #include <sysexits.h>
 
 volatile sig_atomic_t should_exit = 0;
@@ -47,47 +45,6 @@ static void __version(void)
 	inform("%s v%s\n", APP_NAME, APP_VERSION);
 	inform("© %s, %s\n", APP_YEAR, APP_HOLDER);
 	inform("Programmed by %s <%s>\n", APP_PROGRAMMER, APP_EMAIL);
-}
-
-static void* db_gc(void* _data)
-{
-	if (unlikely(!_data))
-		return NULL;
-	db_global_context_t* ctx = _data;
-
-	for (;;)
-	{
-		if (unlikely(should_exit))
-			break;
-
-		struct timespec current_time;
-		if (unlikely(clock_gettime(CLOCK_REALTIME, &current_time) == -1))
-			panic("clock_gettime");
-
-		// Dead sockets cleaner
-		struct db_item* current_item = NULL;
-		struct db_item* tmp_item = NULL;
-		for (size_t i = 0; i < ctx->db_hashlist.size; i++)
-		{
-			if (unlikely(pthread_mutex_lock(&ctx->db_hashlist.list[i].lock)))
-				panic("pthread_mutex_lock");
-			for (current_item = TAILQ_FIRST(&ctx->db_hashlist.list[i].items); current_item; current_item = tmp_item)
-			{
-				tmp_item = TAILQ_NEXT(current_item, tailq);
-				int64_t diff_ns = __pfcq_timespec_diff_ns(current_item->ctime, current_time);
-				if (unlikely(diff_ns >= (int64_t)ctx->db_hashlist.ttl))
-					db_destroy_item_unsafe(&ctx->db_hashlist, i, current_item);
-			}
-			if (unlikely(pthread_mutex_unlock(&ctx->db_hashlist.list[i].lock)))
-				panic("pthread_mutex_unlock");
-		}
-
-		pfcq_sleep(ctx->db_gc_interval);
-	}
-
-	pfpthq_dec(ctx->gc_pool);
-
-	return NULL;
 }
 
 static void sigall_handler(int _signo)
@@ -113,11 +70,6 @@ int main(int argc, char** argv, char** envp)
 	int use_syslog = 0;
 	char* pid_file = NULL;
 	char* config_file = NULL;
-	dictionary* config = NULL;
-#ifndef MODE_DEBUG
-	rlim_t limit;
-	struct rlimit limits;
-#endif
 	struct sigaction db_sigaction;
 	sigset_t db_newmask;
 	sigset_t db_oldmask;
@@ -194,37 +146,8 @@ int main(int argc, char** argv, char** envp)
 	if (unlikely(!config_file))
 		stop("No config file specified");
 
-	g_ctx = pfcq_alloc(sizeof(db_global_context_t));
-
-	config = iniparser_load(config_file);
-	if (unlikely(!config))
-		stop("Unable to load config file");
-
-	g_ctx->db_hashlist.size = (size_t)iniparser_getint(config, DB_CONFIG_HASHLIST_SIZE_KEY, DB_DEFAULT_HASHLIST_SIZE);
-	g_ctx->db_hashlist.list = pfcq_alloc(g_ctx->db_hashlist.size * sizeof(db_hashitem_t));
-	for (size_t i = 0; i < g_ctx->db_hashlist.size; i++)
-	{
-		pfcq_zero(&g_ctx->db_hashlist.list[i], sizeof(db_hashitem_t));
-		if (unlikely(pthread_mutex_init(&g_ctx->db_hashlist.list[i].lock, NULL)))
-			panic("pthread_mutex_init");
-		TAILQ_INIT(&g_ctx->db_hashlist.list[i].items);
-	}
-
-	g_ctx->db_hashlist.ttl = ((uint64_t)iniparser_getint(config, DB_CONFIG_HASHLIST_TTL_KEY, DB_DEFAULT_HASHLIST_TTL)) * 1000000ULL;
-	if (unlikely(g_ctx->db_hashlist.ttl > INT64_MAX))
-	{
-		inform("Hashlist TTL must not exceed %ld ms.\n", INT64_MAX);
-		stop("Are you OK?");
-	}
-
-	g_ctx->db_gc_interval = ((uint64_t)iniparser_getint(config, DB_CONFIG_GC_INTERVAL_KEY, DB_DEFAULT_GC_INTERVAL)) * 1000000ULL;
-
-	iniparser_freedict(config);
-
+	g_ctx = db_global_context_load(config_file);
 	l_ctx = db_local_context_load(config_file, g_ctx);
-
-	g_ctx->gc_pool = pfpthq_init("gc", 1);
-	pfpthq_inc(g_ctx->gc_pool, &g_ctx->gc_id, "gc", db_gc, (void*)g_ctx);
 
 	db_sigaction.sa_handler = sigall_handler;
 	if (unlikely(sigemptyset(&db_sigaction.sa_mask) != 0))
