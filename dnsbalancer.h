@@ -186,6 +186,7 @@ struct db_context
 	db_hashlist_t db_hashlist;
 	pfpthq_pool_t* gc_pool;
 	pthread_t gc_id;
+	pthread_t watchdog_id;
 	uint64_t db_gc_interval;
 };
 

@@ -320,7 +320,7 @@ out:
 	return ret;
 }
 
-static void* db_gc(void* _data)
+static void* db_watchdog(void* _data)
 {
 	if (unlikely(!_data))
 		return NULL;
@@ -330,10 +330,6 @@ static void* db_gc(void* _data)
 	{
 		if (unlikely(should_exit))
 			break;
-
-		struct timespec current_time;
-		if (unlikely(clock_gettime(CLOCK_REALTIME, &current_time) == -1))
-			panic("clock_gettime");
 
 		// Watchdog
 		for (size_t i = 0; i < ctx->frontends_count; i++)
@@ -358,6 +354,28 @@ static void* db_gc(void* _data)
 					ctx->frontends[i]->backend.forwarders[j]->alive = 1;
 				}
 			}
+		pfcq_sleep(ctx->db_gc_interval);
+	}
+
+	pfpthq_dec(ctx->gc_pool);
+
+	return NULL;
+}
+
+static void* db_gc(void* _data)
+{
+	if (unlikely(!_data))
+		return NULL;
+	db_context_t* ctx = _data;
+
+	for (;;)
+	{
+		if (unlikely(should_exit))
+			break;
+
+		struct timespec current_time;
+		if (unlikely(clock_gettime(CLOCK_REALTIME, &current_time) == -1))
+			panic("clock_gettime");
 
 		// Dead sockets cleaner
 		struct db_item* current_item = NULL;
@@ -1197,8 +1215,9 @@ int main(int argc, char** argv, char** envp)
 
 	iniparser_freedict(config);
 
-	ctx->gc_pool = pfpthq_init("gc", 1);
+	ctx->gc_pool = pfpthq_init("gc", 0);
 	pfpthq_inc(ctx->gc_pool, &ctx->gc_id, "gc", db_gc, (void*)ctx);
+	pfpthq_inc(ctx->gc_pool, &ctx->watchdog_id, "watchdog", db_watchdog, (void*)ctx);
 
 	for (size_t i = 0; i < ctx->frontends_count; i++)
 	{
