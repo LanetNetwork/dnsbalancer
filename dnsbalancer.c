@@ -324,7 +324,7 @@ static void* db_watchdog(void* _data)
 {
 	if (unlikely(!_data))
 		return NULL;
-	db_context_t* ctx = _data;
+	db_local_context_t* ctx = _data;
 
 	for (;;)
 	{
@@ -354,10 +354,10 @@ static void* db_watchdog(void* _data)
 					ctx->frontends[i]->backend.forwarders[j]->alive = 1;
 				}
 			}
-		pfcq_sleep(ctx->db_gc_interval);
+		pfcq_sleep(ctx->db_watchdog_interval);
 	}
 
-	pfpthq_dec(ctx->gc_pool);
+	pfpthq_dec(ctx->watchdog_pool);
 
 	return NULL;
 }
@@ -366,7 +366,7 @@ static void* db_gc(void* _data)
 {
 	if (unlikely(!_data))
 		return NULL;
-	db_context_t* ctx = _data;
+	db_global_context_t* ctx = _data;
 
 	for (;;)
 	{
@@ -661,7 +661,7 @@ static void* db_worker(void* _data)
 							}
 							if (unlikely(clock_gettime(CLOCK_REALTIME, &new_item->ctime)))
 								panic("clock_gettime");
-							db_push_item(&data->ctx->db_hashlist, new_item);
+							db_push_item(&data->g_ctx->db_hashlist, new_item);
 							break;
 						}
 					}
@@ -702,7 +702,7 @@ denied:
 							db_hash_t hash = db_make_hash(&prehash);
 							db_free_prehash(&prehash);
 							// Select info from hash table
-							struct db_item* found_item = db_pop_item(&data->ctx->db_hashlist, &hash);
+							struct db_item* found_item = db_pop_item(&data->g_ctx->db_hashlist, &hash);
 							db_free_hash(&hash);
 							if (likely(found_item))
 							{
@@ -778,7 +778,8 @@ int main(int argc, char** argv, char** envp)
 {
 	crc64speed_init();
 
-	db_context_t* ctx;
+	db_global_context_t* g_ctx = NULL;
+	db_local_context_t* l_ctx = NULL;
 	int opts = 0;
 	int daemonize = 0;
 	int be_verbose = 0;
@@ -871,30 +872,32 @@ int main(int argc, char** argv, char** envp)
 	if (unlikely(!config_file))
 		stop("No config file specified");
 
-	ctx = pfcq_alloc(sizeof(db_context_t));
+	g_ctx = pfcq_alloc(sizeof(db_global_context_t));
+	l_ctx = pfcq_alloc(sizeof(db_local_context_t));
 
 	config = iniparser_load(config_file);
 	if (unlikely(!config))
 		stop("Unable to load config file");
 
-	ctx->db_hashlist.size = (size_t)iniparser_getint(config, DB_CONFIG_HASHLIST_SIZE_KEY, DB_DEFAULT_HASHLIST_SIZE);
-	ctx->db_hashlist.list = pfcq_alloc(ctx->db_hashlist.size * sizeof(db_hashitem_t));
-	for (size_t i = 0; i < ctx->db_hashlist.size; i++)
+	g_ctx->db_hashlist.size = (size_t)iniparser_getint(config, DB_CONFIG_HASHLIST_SIZE_KEY, DB_DEFAULT_HASHLIST_SIZE);
+	g_ctx->db_hashlist.list = pfcq_alloc(g_ctx->db_hashlist.size * sizeof(db_hashitem_t));
+	for (size_t i = 0; i < g_ctx->db_hashlist.size; i++)
 	{
-		pfcq_zero(&ctx->db_hashlist.list[i], sizeof(db_hashitem_t));
-		if (unlikely(pthread_mutex_init(&ctx->db_hashlist.list[i].lock, NULL)))
+		pfcq_zero(&g_ctx->db_hashlist.list[i], sizeof(db_hashitem_t));
+		if (unlikely(pthread_mutex_init(&g_ctx->db_hashlist.list[i].lock, NULL)))
 			panic("pthread_mutex_init");
-		TAILQ_INIT(&ctx->db_hashlist.list[i].items);
+		TAILQ_INIT(&g_ctx->db_hashlist.list[i].items);
 	}
 
-	ctx->db_hashlist.ttl = ((uint64_t)iniparser_getint(config, DB_CONFIG_HASHLIST_TTL_KEY, DB_DEFAULT_HASHLIST_TTL)) * 1000000ULL;
-	if (unlikely(ctx->db_hashlist.ttl > INT64_MAX))
+	g_ctx->db_hashlist.ttl = ((uint64_t)iniparser_getint(config, DB_CONFIG_HASHLIST_TTL_KEY, DB_DEFAULT_HASHLIST_TTL)) * 1000000ULL;
+	if (unlikely(g_ctx->db_hashlist.ttl > INT64_MAX))
 	{
 		inform("Hashlist TTL must not exceed %ld ms.\n", INT64_MAX);
 		stop("Are you OK?");
 	}
 
-	ctx->db_gc_interval = ((uint64_t)iniparser_getint(config, DB_CONFIG_GC_INTERVAL_KEY, DB_DEFAULT_GC_INTERVAL)) * 1000000ULL;
+	g_ctx->db_gc_interval = ((uint64_t)iniparser_getint(config, DB_CONFIG_GC_INTERVAL_KEY, DB_DEFAULT_GC_INTERVAL)) * 1000000ULL;
+	l_ctx->db_watchdog_interval = ((uint64_t)iniparser_getint(config, DB_CONFIG_WATCHDOG_INTERVAL_KEY, DB_DEFAULT_WATCHDOG_INTERVAL)) * 1000000ULL;
 
 	stats_enabled = (unsigned short int)iniparser_getint(config, DB_CONFIG_STATS_ENABLED_KEY, 0);
 
@@ -957,12 +960,12 @@ int main(int argc, char** argv, char** envp)
 	char* frontend = NULL;
 	while (likely(frontend = strsep(&frontends_str_iterator, DB_CONFIG_LIST_SEPARATOR)))
 	{
-		if (unlikely(!ctx->frontends))
-			ctx->frontends = pfcq_alloc(sizeof(db_frontend_t*));
+		if (unlikely(!l_ctx->frontends))
+			l_ctx->frontends = pfcq_alloc(sizeof(db_frontend_t*));
 		else
-			ctx->frontends = pfcq_realloc(ctx->frontends, (ctx->frontends_count + 1) * sizeof(db_frontend_t*));
-		ctx->frontends[ctx->frontends_count] = pfcq_alloc(sizeof(db_frontend_t));
-		ctx->frontends[ctx->frontends_count]->ctx = ctx;
+			l_ctx->frontends = pfcq_realloc(l_ctx->frontends, (l_ctx->frontends_count + 1) * sizeof(db_frontend_t*));
+		l_ctx->frontends[l_ctx->frontends_count] = pfcq_alloc(sizeof(db_frontend_t));
+		l_ctx->frontends[l_ctx->frontends_count]->g_ctx = g_ctx;
 
 		char* frontend_workers_key = pfcq_mstring("%s:%s", frontend, "workers");
 		char* frontend_dns_max_packet_length_key = pfcq_mstring("%s:%s", frontend, "dns_max_packet_length");
@@ -972,11 +975,11 @@ int main(int argc, char** argv, char** envp)
 		char* frontend_bind_key = pfcq_mstring("%s:%s", frontend, "bind");
 		char* frontend_acl_key = pfcq_mstring("%s:%s", frontend, "acl");
 
-		ctx->frontends[ctx->frontends_count]->name = pfcq_strdup(frontend);
-		ctx->frontends[ctx->frontends_count]->workers = pfcq_hint_cpus((int)iniparser_getint(config, frontend_workers_key, -1));
-		ctx->frontends[ctx->frontends_count]->workers_pool = pfpthq_init(frontend, ctx->frontends[ctx->frontends_count]->workers);
-		ctx->frontends[ctx->frontends_count]->workers_id = pfcq_alloc(ctx->frontends[ctx->frontends_count]->workers * sizeof(pthread_t));
-		ctx->frontends[ctx->frontends_count]->dns_max_packet_length = (int)iniparser_getint(config, frontend_dns_max_packet_length_key, DB_DEFAULT_DNS_PACKET_SIZE);
+		l_ctx->frontends[l_ctx->frontends_count]->name = pfcq_strdup(frontend);
+		l_ctx->frontends[l_ctx->frontends_count]->workers = pfcq_hint_cpus((int)iniparser_getint(config, frontend_workers_key, -1));
+		l_ctx->frontends[l_ctx->frontends_count]->workers_pool = pfpthq_init(frontend, l_ctx->frontends[l_ctx->frontends_count]->workers);
+		l_ctx->frontends[l_ctx->frontends_count]->workers_id = pfcq_alloc(l_ctx->frontends[l_ctx->frontends_count]->workers * sizeof(pthread_t));
+		l_ctx->frontends[l_ctx->frontends_count]->dns_max_packet_length = (int)iniparser_getint(config, frontend_dns_max_packet_length_key, DB_DEFAULT_DNS_PACKET_SIZE);
 
 		const char* frontend_layer3 = iniparser_getstring(config, frontend_layer3_key, NULL);
 		if (unlikely(!frontend_layer3))
@@ -985,9 +988,9 @@ int main(int argc, char** argv, char** envp)
 			stop("No frontend L3 protocol specified in config file");
 		}
 		if (strcmp(frontend_layer3, DB_CONFIG_IPV4) == 0)
-			ctx->frontends[ctx->frontends_count]->layer3 = PF_INET;
+			l_ctx->frontends[l_ctx->frontends_count]->layer3 = PF_INET;
 		else if (strcmp(frontend_layer3, DB_CONFIG_IPV6) == 0)
-			ctx->frontends[ctx->frontends_count]->layer3 = PF_INET6;
+			l_ctx->frontends[l_ctx->frontends_count]->layer3 = PF_INET6;
 		else
 		{
 			inform("Frontend: %s\n", frontend);
@@ -1002,17 +1005,17 @@ int main(int argc, char** argv, char** envp)
 			stop("No bind address specified in config file");
 		}
 		int inet_pton_bind_res = -1;
-		switch (ctx->frontends[ctx->frontends_count]->layer3)
+		switch (l_ctx->frontends[l_ctx->frontends_count]->layer3)
 		{
 			case PF_INET:
-				ctx->frontends[ctx->frontends_count]->address.address4.sin_family = AF_INET;
-				inet_pton_bind_res = inet_pton(AF_INET, frontend_bind, &ctx->frontends[ctx->frontends_count]->address.address4.sin_addr);
-				ctx->frontends[ctx->frontends_count]->address.address4.sin_port = htons(frontend_port);
+				l_ctx->frontends[l_ctx->frontends_count]->address.address4.sin_family = AF_INET;
+				inet_pton_bind_res = inet_pton(AF_INET, frontend_bind, &l_ctx->frontends[l_ctx->frontends_count]->address.address4.sin_addr);
+				l_ctx->frontends[l_ctx->frontends_count]->address.address4.sin_port = htons(frontend_port);
 				break;
 			case PF_INET6:
-				ctx->frontends[ctx->frontends_count]->address.address6.sin6_family = AF_INET6;
-				inet_pton_bind_res = inet_pton(AF_INET6, frontend_bind, &ctx->frontends[ctx->frontends_count]->address.address6.sin6_addr);
-				ctx->frontends[ctx->frontends_count]->address.address6.sin6_port = htons(frontend_port);
+				l_ctx->frontends[l_ctx->frontends_count]->address.address6.sin6_family = AF_INET6;
+				inet_pton_bind_res = inet_pton(AF_INET6, frontend_bind, &l_ctx->frontends[l_ctx->frontends_count]->address.address6.sin6_addr);
+				l_ctx->frontends[l_ctx->frontends_count]->address.address6.sin6_port = htons(frontend_port);
 				break;
 			default:
 				panic("socket domain");
@@ -1038,19 +1041,19 @@ int main(int argc, char** argv, char** envp)
 			stop("No backend mode specified in config file");
 		}
 		if (likely(strcmp(backend_mode, DB_CONFIG_RR) == 0))
-			ctx->frontends[ctx->frontends_count]->backend.mode = DB_BE_MODE_RR;
+			l_ctx->frontends[l_ctx->frontends_count]->backend.mode = DB_BE_MODE_RR;
 		else if (likely(strcmp(backend_mode, DB_CONFIG_RANDOM) == 0))
-			ctx->frontends[ctx->frontends_count]->backend.mode = DB_BE_MODE_RANDOM;
+			l_ctx->frontends[l_ctx->frontends_count]->backend.mode = DB_BE_MODE_RANDOM;
 		else if (likely(strcmp(backend_mode, DB_CONFIG_LEAST_PKTS) == 0))
-			ctx->frontends[ctx->frontends_count]->backend.mode = DB_BE_MODE_LEAST_PKTS;
+			l_ctx->frontends[l_ctx->frontends_count]->backend.mode = DB_BE_MODE_LEAST_PKTS;
 		else if (likely(strcmp(backend_mode, DB_CONFIG_LEAST_TRAFFIC) == 0))
-			ctx->frontends[ctx->frontends_count]->backend.mode = DB_BE_MODE_LEAST_TRAFFIC;
+			l_ctx->frontends[l_ctx->frontends_count]->backend.mode = DB_BE_MODE_LEAST_TRAFFIC;
 		else if (likely(strcmp(backend_mode, DB_CONFIG_HASH_L3_L4) == 0))
-			ctx->frontends[ctx->frontends_count]->backend.mode = DB_BE_MODE_HASH_L3_L4;
+			l_ctx->frontends[l_ctx->frontends_count]->backend.mode = DB_BE_MODE_HASH_L3_L4;
 		else if (likely(strcmp(backend_mode, DB_CONFIG_HASH_L3) == 0))
-			ctx->frontends[ctx->frontends_count]->backend.mode = DB_BE_MODE_HASH_L3;
+			l_ctx->frontends[l_ctx->frontends_count]->backend.mode = DB_BE_MODE_HASH_L3;
 		else if (likely(strcmp(backend_mode, DB_CONFIG_HASH_L4) == 0))
-			ctx->frontends[ctx->frontends_count]->backend.mode = DB_BE_MODE_HASH_L4;
+			l_ctx->frontends[l_ctx->frontends_count]->backend.mode = DB_BE_MODE_HASH_L4;
 		else
 		{
 			inform("Backend: %s\n", frontend_backend);
@@ -1068,13 +1071,13 @@ int main(int argc, char** argv, char** envp)
 		char* forwarder = NULL;
 		while (likely(forwarder = strsep(&backend_forwarders_iterator, DB_CONFIG_LIST_SEPARATOR)))
 		{
-			if (unlikely(!ctx->frontends[ctx->frontends_count]->backend.forwarders))
-				ctx->frontends[ctx->frontends_count]->backend.forwarders = pfcq_alloc(sizeof(db_forwarder_t*));
+			if (unlikely(!l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders))
+				l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders = pfcq_alloc(sizeof(db_forwarder_t*));
 			else
-				ctx->frontends[ctx->frontends_count]->backend.forwarders =
-					pfcq_realloc(ctx->frontends[ctx->frontends_count]->backend.forwarders,
-						(ctx->frontends[ctx->frontends_count]->backend.forwarders_count + 1) * sizeof(db_forwarder_t*));
-			ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count] = pfcq_alloc(sizeof(db_frontend_t));
+				l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders =
+					pfcq_realloc(l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders,
+						(l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count + 1) * sizeof(db_forwarder_t*));
+			l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count] = pfcq_alloc(sizeof(db_frontend_t));
 
 			char* forwarder_host_key = pfcq_mstring("%s:%s", forwarder, "host");
 			char* forwarder_port_key = pfcq_mstring("%s:%s", forwarder, "port");
@@ -1098,9 +1101,9 @@ int main(int argc, char** argv, char** envp)
 				stop("No forwarder L3 protocol specified in config file");
 			}
 			if (strcmp(forwarder_layer3, DB_CONFIG_IPV4) == 0)
-				ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->layer3 = PF_INET;
+				l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->layer3 = PF_INET;
 			else if (strcmp(forwarder_layer3, DB_CONFIG_IPV6) == 0)
-				ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->layer3 = PF_INET6;
+				l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->layer3 = PF_INET6;
 			else
 			{
 				inform("Forwarder: %s\n", forwarder);
@@ -1109,19 +1112,19 @@ int main(int argc, char** argv, char** envp)
 
 			unsigned short int forwarder_port = (unsigned short int)iniparser_getint(config, forwarder_port_key, DB_DEFAULT_DNS_PORT);
 			int inet_pton_res = -1;
-			switch (ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->layer3)
+			switch (l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->layer3)
 			{
 				case PF_INET:
-					ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->address.address4.sin_family = AF_INET;
-					ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->address.address4.sin_port = htons(forwarder_port);
-					inet_pton_res = inet_pton(ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->layer3,
-							forwarder_host, &(ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->address.address4.sin_addr));
+					l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->address.address4.sin_family = AF_INET;
+					l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->address.address4.sin_port = htons(forwarder_port);
+					inet_pton_res = inet_pton(l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->layer3,
+							forwarder_host, &(l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->address.address4.sin_addr));
 					break;
 				case PF_INET6:
-					ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->address.address6.sin6_family = AF_INET6;
-					ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->address.address6.sin6_port = htons(forwarder_port);
-					inet_pton_res = inet_pton(ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->layer3,
-							forwarder_host, &(ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->address.address6.sin6_addr));
+					l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->address.address6.sin6_family = AF_INET6;
+					l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->address.address6.sin6_port = htons(forwarder_port);
+					inet_pton_res = inet_pton(l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->layer3,
+							forwarder_host, &(l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->address.address6.sin6_addr));
 					break;
 				default:
 					panic("socket domain");
@@ -1129,11 +1132,11 @@ int main(int argc, char** argv, char** envp)
 			}
 			if (unlikely(inet_pton_res != 1))
 				panic("inet_pton");
-			ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->name = pfcq_strdup(forwarder);
+			l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->name = pfcq_strdup(forwarder);
 
-			ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->check_attempts =
+			l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->check_attempts =
 				(size_t)iniparser_getint(config, forwarder_check_attempts_key, DB_DEFAULT_FORWARDER_CHECK_ATTEMPTS);
-			ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->check_timeout =
+			l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->check_timeout =
 				((uint64_t)iniparser_getint(config, forwarder_check_timeout_key, DB_DEFAULT_FORWARDER_CHECK_TIMEOUT)) * 1000ULL;
 			const char* forwarder_check_query = iniparser_getstring(config, forwarder_check_query_key, NULL);
 			if (unlikely(!forwarder_check_query))
@@ -1141,18 +1144,18 @@ int main(int argc, char** argv, char** envp)
 				inform("Forwarder: %s\n", forwarder);
 				stop("No check query specified for forwarder in config file");
 			}
-			ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->check_query =
+			l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->check_query =
 				pfcq_strdup(forwarder_check_query);
-			if (unlikely(pthread_spin_init(&ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->stats.in_lock,
+			if (unlikely(pthread_spin_init(&l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->stats.in_lock,
 							PTHREAD_PROCESS_PRIVATE)))
 				panic("pthread_spin_init");
-			if (unlikely(pthread_spin_init(&ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->stats.out_lock,
+			if (unlikely(pthread_spin_init(&l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->stats.out_lock,
 							PTHREAD_PROCESS_PRIVATE)))
 				panic("pthread_spin_init");
-			ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->weight =
+			l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->weight =
 				(uint64_t)iniparser_getint(config, forwarder_weight_key, DB_DEFAULT_WEIGHT);
-			ctx->frontends[ctx->frontends_count]->backend.total_weight +=
-				ctx->frontends[ctx->frontends_count]->backend.forwarders[ctx->frontends[ctx->frontends_count]->backend.forwarders_count]->weight;
+			l_ctx->frontends[l_ctx->frontends_count]->backend.total_weight +=
+				l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders[l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count]->weight;
 
 			pfcq_free(forwarder_host_key);
 			pfcq_free(forwarder_port_key);
@@ -1162,7 +1165,7 @@ int main(int argc, char** argv, char** envp)
 			pfcq_free(forwarder_check_query_key);
 			pfcq_free(forwarder_weight_key);
 
-			ctx->frontends[ctx->frontends_count]->backend.forwarders_count++;
+			l_ctx->frontends[l_ctx->frontends_count]->backend.forwarders_count++;
 		}
 		pfcq_free(backend_forwarders_iterator_p);
 
@@ -1187,11 +1190,11 @@ int main(int argc, char** argv, char** envp)
 		if (strcmp(frontend_acl_source, DB_CONFIG_ACL_SOURCE_LOCAL) == 0)
 		{
 			char* frontend_acl_name = strsep(&frontend_acl_i, DB_CONFIG_PARAMETERS_SEPARATOR);
-			ctx->frontends[ctx->frontends_count]->acl_source = DB_ACL_SOURCE_LOCAL;
-			db_acl_local_load(config, frontend_acl_name, &ctx->frontends[ctx->frontends_count]->acl);
+			l_ctx->frontends[l_ctx->frontends_count]->acl_source = DB_ACL_SOURCE_LOCAL;
+			db_acl_local_load(config, frontend_acl_name, &l_ctx->frontends[l_ctx->frontends_count]->acl);
 		} else if (strcmp(frontend_acl_source, DB_CONFIG_ACL_SOURCE_MYSQL) == 0)
 		{
-			ctx->frontends[ctx->frontends_count]->acl_source = DB_ACL_SOURCE_MYSQL;
+			l_ctx->frontends[l_ctx->frontends_count]->acl_source = DB_ACL_SOURCE_MYSQL;
 			panic("Not implemented");
 		} else
 		{
@@ -1209,29 +1212,30 @@ int main(int argc, char** argv, char** envp)
 		pfcq_free(frontend_bind_key);
 		pfcq_free(frontend_acl_key);
 
-		ctx->frontends_count++;
+		l_ctx->frontends_count++;
 	}
 	pfcq_free(frontends_str_iterator_p);
 
 	iniparser_freedict(config);
 
-	ctx->gc_pool = pfpthq_init("gc", 0);
-	pfpthq_inc(ctx->gc_pool, &ctx->gc_id, "gc", db_gc, (void*)ctx);
-	pfpthq_inc(ctx->gc_pool, &ctx->watchdog_id, "watchdog", db_watchdog, (void*)ctx);
+	g_ctx->gc_pool = pfpthq_init("gc", 1);
+	l_ctx->watchdog_pool = pfpthq_init("watchdog", 1);
+	pfpthq_inc(g_ctx->gc_pool, &g_ctx->gc_id, "gc", db_gc, (void*)g_ctx);
+	pfpthq_inc(l_ctx->watchdog_pool, &l_ctx->watchdog_id, "watchdog", db_watchdog, (void*)l_ctx);
 
-	for (size_t i = 0; i < ctx->frontends_count; i++)
+	for (size_t i = 0; i < l_ctx->frontends_count; i++)
 	{
-		if (unlikely(pthread_spin_init(&ctx->frontends[i]->backend.queries_lock, PTHREAD_PROCESS_PRIVATE)))
+		if (unlikely(pthread_spin_init(&l_ctx->frontends[i]->backend.queries_lock, PTHREAD_PROCESS_PRIVATE)))
 			panic("pthread_spin_init");
-		if (unlikely(pthread_spin_init(&ctx->frontends[i]->stats.in_lock, PTHREAD_PROCESS_PRIVATE)))
+		if (unlikely(pthread_spin_init(&l_ctx->frontends[i]->stats.in_lock, PTHREAD_PROCESS_PRIVATE)))
 			panic("pthread_spin_init");
-		if (unlikely(pthread_spin_init(&ctx->frontends[i]->stats.out_lock, PTHREAD_PROCESS_PRIVATE)))
+		if (unlikely(pthread_spin_init(&l_ctx->frontends[i]->stats.out_lock, PTHREAD_PROCESS_PRIVATE)))
 			panic("pthread_spin_init");
-		if (unlikely(pthread_spin_init(&ctx->frontends[i]->stats.in_invalid_lock, PTHREAD_PROCESS_PRIVATE)))
+		if (unlikely(pthread_spin_init(&l_ctx->frontends[i]->stats.in_invalid_lock, PTHREAD_PROCESS_PRIVATE)))
 			panic("pthread_spin_init");
 
-		for (int j = 0; j < ctx->frontends[i]->workers; j++)
-			pfpthq_inc(ctx->frontends[i]->workers_pool, &ctx->frontends[i]->workers_id[j], ctx->frontends[i]->name, db_worker, (void*)ctx->frontends[i]);
+		for (int j = 0; j < l_ctx->frontends[i]->workers; j++)
+			pfpthq_inc(l_ctx->frontends[i]->workers_pool, &l_ctx->frontends[i]->workers_id[j], l_ctx->frontends[i]->name, db_worker, (void*)l_ctx->frontends[i]);
 	}
 
 	db_sigaction.sa_handler = sigall_handler;
@@ -1252,9 +1256,9 @@ int main(int argc, char** argv, char** envp)
 		panic("pthread_sigmask");
 
 	setproctitle_init(argc, argv, envp);
-	setproctitle("Serving %u frontend(s)", ctx->frontends_count);
+	setproctitle("Serving %u frontend(s)", l_ctx->frontends_count);
 
-	db_stats_init(ctx, stats_enabled, stats_layer3_family, &stats_address);
+	db_stats_init(l_ctx, stats_enabled, stats_layer3_family, &stats_address);
 
 	while (likely(!should_exit))
 		sigsuspend(&db_oldmask);
@@ -1263,38 +1267,38 @@ int main(int argc, char** argv, char** envp)
 
 	db_stats_done();
 
-	for (size_t i = 0; i < ctx->frontends_count; i++)
+	for (size_t i = 0; i < l_ctx->frontends_count; i++)
 	{
-		for (int j = 0; j < ctx->frontends[i]->workers; j++)
-			if (unlikely(pthread_kill(ctx->frontends[i]->workers_id[j], SIGINT)))
+		for (int j = 0; j < l_ctx->frontends[i]->workers; j++)
+			if (unlikely(pthread_kill(l_ctx->frontends[i]->workers_id[j], SIGINT)))
 				panic("pthread_kill");
-		pfpthq_wait(ctx->frontends[i]->workers_pool);
-		pfpthq_done(ctx->frontends[i]->workers_pool);
-		for (size_t j = 0; j < ctx->frontends[i]->backend.forwarders_count; j++)
+		pfpthq_wait(l_ctx->frontends[i]->workers_pool);
+		pfpthq_done(l_ctx->frontends[i]->workers_pool);
+		for (size_t j = 0; j < l_ctx->frontends[i]->backend.forwarders_count; j++)
 		{
-			pfcq_free(ctx->frontends[i]->backend.forwarders[j]->name);
-			pfcq_free(ctx->frontends[i]->backend.forwarders[j]->check_query);
-			if (unlikely(pthread_spin_destroy(&ctx->frontends[i]->backend.forwarders[j]->stats.in_lock)))
+			pfcq_free(l_ctx->frontends[i]->backend.forwarders[j]->name);
+			pfcq_free(l_ctx->frontends[i]->backend.forwarders[j]->check_query);
+			if (unlikely(pthread_spin_destroy(&l_ctx->frontends[i]->backend.forwarders[j]->stats.in_lock)))
 				panic("pthread_spin_destroy");
-			if (unlikely(pthread_spin_destroy(&ctx->frontends[i]->backend.forwarders[j]->stats.out_lock)))
+			if (unlikely(pthread_spin_destroy(&l_ctx->frontends[i]->backend.forwarders[j]->stats.out_lock)))
 				panic("pthread_spin_destroy");
-			pfcq_free(ctx->frontends[i]->backend.forwarders[j]);
+			pfcq_free(l_ctx->frontends[i]->backend.forwarders[j]);
 		}
-		pfcq_free(ctx->frontends[i]->backend.forwarders);
-		pfcq_free(ctx->frontends[i]->workers_id);
-		pfcq_free(ctx->frontends[i]->name);
-		if (unlikely(pthread_spin_destroy(&ctx->frontends[i]->stats.in_lock)))
+		pfcq_free(l_ctx->frontends[i]->backend.forwarders);
+		pfcq_free(l_ctx->frontends[i]->workers_id);
+		pfcq_free(l_ctx->frontends[i]->name);
+		if (unlikely(pthread_spin_destroy(&l_ctx->frontends[i]->stats.in_lock)))
 			panic("pthread_spin_destroy");
-		if (unlikely(pthread_spin_destroy(&ctx->frontends[i]->stats.out_lock)))
+		if (unlikely(pthread_spin_destroy(&l_ctx->frontends[i]->stats.out_lock)))
 			panic("pthread_spin_destroy");
-		if (unlikely(pthread_spin_destroy(&ctx->frontends[i]->stats.in_invalid_lock)))
+		if (unlikely(pthread_spin_destroy(&l_ctx->frontends[i]->stats.in_invalid_lock)))
 			panic("pthread_spin_destroy");
-		if (unlikely(pthread_spin_destroy(&ctx->frontends[i]->backend.queries_lock)))
+		if (unlikely(pthread_spin_destroy(&l_ctx->frontends[i]->backend.queries_lock)))
 			panic("pthread_spin_destroy");
-		switch (ctx->frontends[i]->acl_source)
+		switch (l_ctx->frontends[i]->acl_source)
 		{
 			case DB_ACL_SOURCE_LOCAL:
-				db_acl_local_unload(&ctx->frontends[i]->acl);
+				db_acl_local_unload(&l_ctx->frontends[i]->acl);
 				break;
 			case DB_ACL_SOURCE_MYSQL:
 				panic("Not implemented");
@@ -1304,26 +1308,31 @@ int main(int argc, char** argv, char** envp)
 				break;
 		}
 	}
-	for (size_t i = 0; i < ctx->frontends_count; i++)
-		pfcq_free(ctx->frontends[i]);
-	pfcq_free(ctx->frontends);
+	for (size_t i = 0; i < l_ctx->frontends_count; i++)
+		pfcq_free(l_ctx->frontends[i]);
+	pfcq_free(l_ctx->frontends);
 
-	pfpthq_wait(ctx->gc_pool);
-	pfpthq_done(ctx->gc_pool);
+	pfpthq_wait(l_ctx->watchdog_pool);
+	pfpthq_done(l_ctx->watchdog_pool);
 
-	for (size_t i = 0; i < ctx->db_hashlist.size; i++)
+	pfcq_free(l_ctx);
+
+	pfpthq_wait(g_ctx->gc_pool);
+	pfpthq_done(g_ctx->gc_pool);
+
+	for (size_t i = 0; i < g_ctx->db_hashlist.size; i++)
 	{
-		while (likely(!TAILQ_EMPTY(&ctx->db_hashlist.list[i].items)))
+		while (likely(!TAILQ_EMPTY(&g_ctx->db_hashlist.list[i].items)))
 		{
-			struct db_item* current_item = TAILQ_FIRST(&ctx->db_hashlist.list[i].items);
-			db_destroy_item_unsafe(&ctx->db_hashlist, i, current_item);
+			struct db_item* current_item = TAILQ_FIRST(&g_ctx->db_hashlist.list[i].items);
+			db_destroy_item_unsafe(&g_ctx->db_hashlist, i, current_item);
 		}
-		if (unlikely(pthread_mutex_destroy(&ctx->db_hashlist.list[i].lock)))
+		if (unlikely(pthread_mutex_destroy(&g_ctx->db_hashlist.list[i].lock)))
 			panic("pthread_mutex_destroy");
 	}
-	pfcq_free(ctx->db_hashlist.list);
+	pfcq_free(g_ctx->db_hashlist.list);
 
-	pfcq_free(ctx);
+	pfcq_free(g_ctx);
 
 	if (unlikely(pthread_sigmask(SIG_UNBLOCK, &db_newmask, NULL) != 0))
 		panic("pthread_sigmask");

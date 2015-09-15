@@ -44,6 +44,7 @@
 #define DB_CONFIG_HASHLIST_SIZE_KEY			"general:hashlist_size"
 #define DB_CONFIG_HASHLIST_TTL_KEY			"general:hashlist_ttl"
 #define DB_CONFIG_GC_INTERVAL_KEY			"general:gc_interval"
+#define DB_CONFIG_WATCHDOG_INTERVAL_KEY		"general:watchdog_interval"
 #define DB_CONFIG_STATS_ENABLED_KEY			"stats:enabled"
 #define DB_CONFIG_STATS_LAYER3_KEY			"stats:layer3"
 #define DB_CONFIG_STATS_PORT_KEY			"stats:port"
@@ -74,6 +75,7 @@
 #define DB_DEFAULT_HASHLIST_SIZE			1024
 #define DB_DEFAULT_HASHLIST_TTL				10000
 #define DB_DEFAULT_GC_INTERVAL				1000
+#define DB_DEFAULT_WATCHDOG_INTERVAL		1000
 #define DB_DEFAULT_STATS_PORT				8083
 #define DB_DEFAULT_DNS_PORT					53
 #define DB_DEFAULT_DNS_PACKET_SIZE			4096
@@ -160,7 +162,8 @@ typedef struct db_frontend_stats
 	int __padding1;
 } db_frontend_stats_t;
 
-typedef struct db_context db_context_t;
+typedef struct db_local_context db_local_context_t;
+typedef struct db_global_context db_global_context_t;
 
 typedef struct db_frontend
 {
@@ -173,20 +176,26 @@ typedef struct db_frontend
 	db_acl_source_t acl_source;
 	sa_family_t layer3;
 	int __padding1:32;
-	db_context_t* ctx;
+	db_global_context_t* g_ctx;
 	db_backend_t backend;
 	db_frontend_stats_t stats;
 	struct db_acl acl;
 } db_frontend_t;
 
-struct db_context
+struct db_local_context
 {
 	db_frontend_t** frontends;
 	size_t frontends_count;
+	pfpthq_pool_t* watchdog_pool;
+	pthread_t watchdog_id;
+	uint64_t db_watchdog_interval;
+};
+
+struct db_global_context
+{
 	db_hashlist_t db_hashlist;
 	pfpthq_pool_t* gc_pool;
 	pthread_t gc_id;
-	pthread_t watchdog_id;
 	uint64_t db_gc_interval;
 };
 

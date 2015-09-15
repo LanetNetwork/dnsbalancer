@@ -57,6 +57,7 @@ rlimit=32768
 hashlist_size=1024
 hashlist_ttl=10000
 gc_interval=1000
+watchdog_interval=1000
 frontends=fe_dns
 
 [stats]
@@ -115,9 +116,10 @@ concurrent items stored in hashlist (that means, the average value of concurrent
 as normal DNS forwarders should answer within 200 ms; specifying small values could result
 in eliminating RAM usage but also in query drops;
 * `gc_interval` specifies GC invocation interval in milliseconds; GC (garbage collector) is a timer
-thread that does housekeeping work: polling forwarders as well as cleaning up hashlist for orphaned
-(stalled) items (DNS requests that are lost by underlying forwarders); if balancer should serve very
-high load, you may try to increase this value.
+thread that does cleaning up hashlist for orphaned (stalled) items (DNS requests that are lost
+by underlying forwarders); if balancer should serve very high load, you may try to increase this value;
+* `watchdog_interval` specifies watchdog invocation interval in milliseconds; it is a timer
+thread that does polling forwarders.
 
 `stats` section holds statistics options:
 

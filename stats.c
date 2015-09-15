@@ -23,7 +23,7 @@
 #include <stats.h>
 #include <string.h>
 
-static db_context_t* ctx = NULL;
+static db_local_context_t* ctx = NULL;
 static struct MHD_Daemon* mhd_daemon = NULL;
 
 void db_stats_frontend_in(db_frontend_t* _frontend, uint64_t _delta_bytes)
@@ -284,7 +284,7 @@ out:
 	return ret;
 }
 
-void db_stats_init(db_context_t* _ctx, unsigned short int _enabled, sa_family_t _layer3_family, pfcq_net_address_t* _address)
+void db_stats_init(db_local_context_t* _ctx, unsigned short int _enabled, sa_family_t _layer3_family, pfcq_net_address_t* _address)
 {
 	ctx = _ctx;
 

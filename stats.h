@@ -30,7 +30,7 @@ void db_stats_frontend_in_invalid(db_frontend_t* _frontend, uint64_t _delta_byte
 void db_stats_frontend_out(db_frontend_t* _frontend, uint64_t _delta_bytes, ldns_pkt_rcode _rcode) __attribute__((nonnull(1)));
 void db_stats_forwarder_in(db_forwarder_t* _forwarder, uint64_t _delta_bytes) __attribute__((nonnull(1)));
 void db_stats_forwarder_out(db_forwarder_t* _forwarder, uint64_t _delta_bytes, ldns_pkt_rcode _rcode) __attribute__((nonnull(1)));
-void db_stats_init(db_context_t* _ctx, unsigned short int _enabled, sa_family_t _layer3_family, pfcq_net_address_t* _address) __attribute__((nonnull(1, 4)));
+void db_stats_init(db_local_context_t* _ctx, unsigned short int _enabled, sa_family_t _layer3_family, pfcq_net_address_t* _address) __attribute__((nonnull(1, 4)));
 void db_stats_done(void);
 
 #endif /* __STATS_H__ */
