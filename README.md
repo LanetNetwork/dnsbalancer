@@ -54,7 +54,7 @@ Here is an example with default values:
 ```ini
 [general]
 rlimit=32768
-hashlist_size=1024
+hashlist_size=1021
 hashlist_ttl=10000
 gc_interval=1000
 watchdog_interval=1000
@@ -111,7 +111,8 @@ weight=1
 * `hashlist_size` specifies the size of hashmap that holds DNS queries; specifying
 big values could result in performance improvements due to narrowing hash collision domains,
 however big hashlists consume more RAM; the semi-optimal value could be the average number of
-concurrent items stored in hashlist (that means, the average value of concurrent DNS requests);
+concurrent items stored in hashlist (that means, the average value of concurrent DNS requests); also
+use prime numbers only to make hash distribution more uniform;
 * `hashlist_ttl` specifies hashitem TTL in milliseconds; usually, 10 seconds is more than enough
 as normal DNS forwarders should answer within 200 ms; specifying small values could result
 in eliminating RAM usage but also in query drops;
