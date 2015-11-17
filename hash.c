@@ -25,11 +25,14 @@
 db_prehash_t db_make_prehash(ldns_pkt* _packet, ldns_rr* _rr, int _forwarder_socket)
 {
 	db_prehash_t ret;
+	ldns_rdf* owner = NULL;
 
 	ret.packet_id = ldns_pkt_id(_packet);
 	ret.rr_type = ldns_rr_get_type(_rr);
 	ret.rr_class = ldns_rr_get_class(_rr);
-	ret.fqdn = ldns_rdf2str(ldns_rr_owner(_rr));
+	owner = ldns_rr_owner(_rr);
+	ldns_dname2canonical(owner);
+	ret.fqdn = ldns_rdf2str(owner);
 	ret.forwarder_socket = _forwarder_socket;
 
 	return ret;
