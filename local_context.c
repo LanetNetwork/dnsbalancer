@@ -396,7 +396,7 @@ static void* db_worker(void* _data)
 									goto denied;
 									break;
 								case DB_ACL_ACTION_NXDOMAIN:
-									__noop;
+								{
 									ldns_pkt* nxdomain_packet = ldns_pkt_new();
 
 									ldns_pkt_set_id(nxdomain_packet, ldns_pkt_id(client_query_packet));
@@ -432,7 +432,8 @@ static void* db_worker(void* _data)
 									free(nxdomain_buffer);
 
 									goto denied;
-									break;
+									// break; omitted
+								}
 								case DB_ACL_ACTION_SET_A:
 									break;
 								default:

@@ -93,14 +93,18 @@ db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _add
 							goto found;
 						}
 						break;
-					case DB_ACL_MATCHER_SUBDOMAIN: __noop;
+					case DB_ACL_MATCHER_SUBDOMAIN:
+					{
 						char* pos = strstr(_prehash->fqdn, current_list_item->s_value);
-						if (pos && (size_t)(pos - _prehash->fqdn) == strlen(_prehash->fqdn) - strlen(current_list_item->s_value))
+						size_t fqdn_len = strlen(_prehash->fqdn);
+						size_t list_item_len = strlen(current_list_item->s_value);
+						if (pos && (size_t)(pos - _prehash->fqdn) == fqdn_len - list_item_len)
 						{
 							matcher_matched = 1;
 							goto found;
 						}
 						break;
+					}
 					case DB_ACL_MATCHER_REGEX:
 						if (regexec(&current_list_item->regex, _prehash->fqdn, 0, NULL, 0) == REG_NOERROR)
 						{
