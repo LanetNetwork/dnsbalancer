@@ -163,7 +163,7 @@ static db_forwarder_stats_t db_stats_forwarder(db_forwarder_t* _forwarder)
 static int db_queue_code(struct MHD_Connection* _connection, const char* _url, unsigned int _code)
 {
 	int ret = MHD_NO;
-	struct MHD_Response* response = MHD_create_response_from_data(0, NULL, 0, 0);
+	struct MHD_Response* response = MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
 	if (unlikely(!response))
 		return ret;
 
