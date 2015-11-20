@@ -76,13 +76,14 @@ struct db_request* db_make_request(ldns_pkt* _packet, db_request_data_t _data, p
 	return ret;
 }
 
-size_t db_insert_request(db_request_list_t* _list, struct db_request* _request)
+uint16_t db_insert_request(db_request_list_t* _list, struct db_request* _request)
 {
-	size_t index = 0;
+	uint16_t index = 0;
 
 	if (unlikely(pthread_spin_lock(&_list->list_index_lock)))
 		panic("pthread_spin_lock");
 	index = _list->list_index;
+	// May intentionally overflow here (wrap around)
 	_list->list_index++;
 	if (unlikely(pthread_spin_unlock(&_list->list_index_lock)))
 		panic("pthread_spin_unlock");
@@ -97,7 +98,7 @@ size_t db_insert_request(db_request_list_t* _list, struct db_request* _request)
 	return index;
 }
 
-struct db_request* db_eject_request(db_request_list_t* _list, size_t _index, db_request_data_t _data)
+struct db_request* db_eject_request(db_request_list_t* _list, uint16_t _index, db_request_data_t _data)
 {
 	struct db_request* ret = NULL;
 
@@ -124,7 +125,7 @@ struct db_request* db_eject_request(db_request_list_t* _list, size_t _index, db_
 	return ret;
 }
 
-void db_remove_request_unsafe(db_request_list_t* _list, size_t _index, struct db_request* _request)
+void db_remove_request_unsafe(db_request_list_t* _list, uint16_t _index, struct db_request* _request)
 {
 	TAILQ_REMOVE(&_list->list[_index].requests, _request, tailq);
 	pfcq_free(_request);

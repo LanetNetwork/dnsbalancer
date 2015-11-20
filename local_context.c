@@ -379,7 +379,7 @@ static void* db_worker(void* _data)
 					}
 					ldns_rr_list* client_queries = ldns_pkt_question(client_query_packet);
 					size_t client_queries_count = ldns_rr_list_rr_count(client_queries);
-					size_t new_id = 0;
+					uint16_t new_id = 0;
 					db_request_data_t request_data;
 					for (size_t j = 0; j < client_queries_count; j++)
 					{

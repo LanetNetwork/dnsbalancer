@@ -61,18 +61,18 @@ typedef struct db_request_bucket
 typedef struct db_request_list
 {
 	db_request_bucket_t list[UINT16_MAX];
-	size_t list_index;
+	uint16_t list_index;
+	int __padding1:16;
 	pthread_spinlock_t list_index_lock;
-	int __padding1:32;
 	uint64_t ttl;
 } db_request_list_t;
 
 db_request_data_t db_make_request_data(ldns_pkt* _packet, int _forwarder_socket) __attribute__((nonnull(1)));
 int db_compare_request_data(db_request_data_t _data1, db_request_data_t _data2);
 struct db_request* db_make_request(ldns_pkt* _packet, db_request_data_t _data, pfcq_net_address_t _address, size_t _forwarder_index) __attribute__((nonnull(1)));
-size_t db_insert_request(db_request_list_t* _list, struct db_request* _request) __attribute__((nonnull(1, 2)));
-struct db_request* db_eject_request(db_request_list_t* _list, size_t _index, db_request_data_t _data) __attribute__((nonnull(1)));
-void db_remove_request_unsafe(db_request_list_t* _list, size_t _index, struct db_request* _request) __attribute__((nonnull(1, 3)));
+uint16_t db_insert_request(db_request_list_t* _list, struct db_request* _request) __attribute__((nonnull(1, 2)));
+struct db_request* db_eject_request(db_request_list_t* _list, uint16_t _index, db_request_data_t _data) __attribute__((nonnull(1)));
+void db_remove_request_unsafe(db_request_list_t* _list, uint16_t _index, struct db_request* _request) __attribute__((nonnull(1, 3)));
 
 #endif /* __REQUEST_H__ */
 
