@@ -22,6 +22,7 @@
 #include <crc64speed.h>
 #include <iniparser.h>
 #include <local_context.h>
+#include <request.h>
 #include <signal.h>
 #include <stats.h>
 #include <sys/epoll.h>
@@ -378,17 +379,18 @@ static void* db_worker(void* _data)
 					}
 					ldns_rr_list* client_queries = ldns_pkt_question(client_query_packet);
 					size_t client_queries_count = ldns_rr_list_rr_count(client_queries);
-					db_prehash_t client_query_prehash;
+					size_t new_id = 0;
+					db_request_data_t request_data;
 					for (size_t j = 0; j < client_queries_count; j++)
 					{
 						ldns_rr* client_query = ldns_rr_list_rr(client_queries, j);
 						if (likely(ldns_rr_is_question(client_query)))
 						{
 							// Extract query info
-							client_query_prehash = db_make_prehash(client_query_packet, client_query, forwarders[forwarder_index]);
+							request_data = db_make_request_data(client_query_packet, forwarders[forwarder_index]);
 
 							// Check query against ACL
-							switch (db_check_query_acl(data->layer3, &address, &client_query_prehash, &data->acl))
+							switch (db_check_query_acl(data->layer3, &address, &request_data, &data->acl))
 							{
 								case DB_ACL_ACTION_ALLOW:
 									break;
@@ -429,6 +431,8 @@ static void* db_worker(void* _data)
 
 									ldns_rr_list_free(nxdomain_rr_list);
 									ldns_pkt_free(nxdomain_packet);
+									pfcq_zero(nxdomain_buffer, nxdomain_buffer_size);
+									nxdomain_buffer = NULL;
 									free(nxdomain_buffer);
 
 									goto denied;
@@ -445,34 +449,25 @@ static void* db_worker(void* _data)
 							// CRC64 hash is used to distribute requests over hash tables,
 							// raw hash is used to select record from specific table
 							// when answering to request
-							struct db_item* new_item = pfcq_alloc(sizeof(struct db_item));
-							new_item->hash = db_make_hash(&client_query_prehash);
-							new_item->forwarder = forwarder_index;
-							switch (data->layer3)
-							{
-								case PF_INET:
-									memcpy(&new_item->address.address4, &address.address4, sizeof(struct sockaddr_in));
-									break;
-								case PF_INET6:
-									memcpy(&new_item->address.address6, &address.address6, sizeof(struct sockaddr_in6));
-									break;
-								default:
-									panic("socket domain");
-									break;
-							}
-							if (unlikely(clock_gettime(CLOCK_REALTIME, &new_item->ctime)))
-								panic("clock_gettime");
-							db_push_item(&data->g_ctx->db_hashlist, new_item);
+							struct db_request* new_request = db_make_request(client_query_packet, request_data, address, forwarder_index);
+							new_id = db_insert_request(&data->g_ctx->db_requests, new_request);
 							break;
 						}
 					}
 
-					// Forward request to forwarder
-					ssize_t send_res = send(forwarders[forwarder_index], server_buffer, query_size, 0);
+					// Forward request to forwarder with new ID
+					ldns_pkt_set_id(client_query_packet, new_id);
+					uint8_t* request_buffer = NULL;
+					size_t request_buffer_size = 0;
+					ldns_pkt2wire(&request_buffer, client_query_packet, &request_buffer_size);
+
+					ssize_t send_res = send(forwarders[forwarder_index], request_buffer, request_buffer_size, 0);
 					if (likely(send_res != -1))
 						db_stats_forwarder_in(data->backend.forwarders[forwarder_index], send_res);
+					pfcq_zero(request_buffer, request_buffer_size);
+					free(request_buffer);
+					request_buffer = NULL;
 denied:
-					db_free_prehash(&client_query_prehash);
 					ldns_pkt_free(client_query_packet);
 				} else
 				{
@@ -499,34 +494,38 @@ denied:
 						if (likely(ldns_rr_is_question(backend_query)))
 						{
 							// Calculate answer ID from DNS metadata
-							db_prehash_t prehash = db_make_prehash(backend_answer_packet, backend_query, epoll_events[i].data.fd);
-							db_hash_t hash = db_make_hash(&prehash);
-							db_free_prehash(&prehash);
+							db_request_data_t request_data = db_make_request_data(backend_answer_packet, epoll_events[i].data.fd);
 							// Select info from hash table
-							struct db_item* found_item = db_pop_item(&data->g_ctx->db_hashlist, &hash);
-							db_free_hash(&hash);
-							if (likely(found_item))
+							struct db_request* found_request = db_eject_request(&data->g_ctx->db_requests, ldns_pkt_id(backend_answer_packet), request_data);
+							if (likely(found_request))
 							{
+								ldns_pkt_set_id(backend_answer_packet, found_request->original_id);
+								uint8_t* response_buffer = NULL;
+								size_t response_buffer_size = 0;
+								ldns_pkt2wire(&response_buffer, backend_answer_packet, &response_buffer_size);
+
 								ldns_pkt_rcode backend_answer_packet_rcode = ldns_pkt_get_rcode(backend_answer_packet);
-								db_stats_forwarder_out(data->backend.forwarders[found_item->forwarder], answer_size, backend_answer_packet_rcode);
+								db_stats_forwarder_out(data->backend.forwarders[found_request->forwarder_index], answer_size, backend_answer_packet_rcode);
 								// Send answer to client
 								ssize_t sendto_res = -1;
 								switch (data->layer3)
 								{
 									case PF_INET:
-										sendto_res = sendto(server, backend_buffer, answer_size, 0,
-												(const struct sockaddr*)&found_item->address.address4, (socklen_t)sizeof(struct sockaddr_in));
+										sendto_res = sendto(server, response_buffer, response_buffer_size, 0,
+												(const struct sockaddr*)&found_request->client_address.address4, (socklen_t)sizeof(struct sockaddr_in));
 										break;
 									case PF_INET6:
-										sendto_res = sendto(server, backend_buffer, answer_size, 0,
-												(const struct sockaddr*)&found_item->address.address6, (socklen_t)sizeof(struct sockaddr_in6));
+										sendto_res = sendto(server, response_buffer, response_buffer_size, 0,
+												(const struct sockaddr*)&found_request->client_address.address6, (socklen_t)sizeof(struct sockaddr_in6));
 										break;
 									default:
 										panic("socket domain");
 										break;
 								}
-								db_free_hash(&found_item->hash);
-								pfcq_free(found_item);
+								pfcq_zero(response_buffer, response_buffer_size);
+								free(response_buffer);
+								response_buffer = NULL;
+								pfcq_free(found_request);
 								if (likely(sendto_res != -1))
 									db_stats_frontend_out(data, sendto_res, backend_answer_packet_rcode);
 								break;
@@ -618,18 +617,16 @@ static int db_ping_forwarder(db_forwarder_t* _forwarder)
 		goto packet_free;
 	if (unlikely(send(db_ping_socket, db_ping_packet_buffer, db_ping_packet_buffer_size, 0) == -1))
 		goto ping_buffer_free;
-	db_prehash_t prehash_request = db_make_prehash(db_ping_packet, db_ping_packet_rr, db_ping_socket);
-	db_hash_t hash_request = db_make_hash(&prehash_request);
-	db_free_prehash(&prehash_request);
+	db_request_data_t request_data = db_make_request_data(db_ping_packet, db_ping_socket);
 
 	// Ping reply
 	ssize_t db_echo_packet_buffer_size = recv(db_ping_socket, db_echo_packet_buffer, DB_DEFAULT_DNS_PACKET_SIZE, 0);
 	if (unlikely(db_echo_packet_buffer_size == -1))
-		goto hash_request_free;
+		goto ping_buffer_free;
 
 	ldns_pkt* db_echo_packet = NULL;
 	if (unlikely(ldns_wire2pkt(&db_echo_packet, db_echo_packet_buffer, db_echo_packet_buffer_size) != LDNS_STATUS_OK))
-		goto hash_request_free;
+		goto ping_buffer_free;
 
 	if (unlikely(ldns_pkt_qdcount(db_echo_packet) != 1))
 		goto pkt_free;
@@ -641,20 +638,15 @@ static int db_ping_forwarder(db_forwarder_t* _forwarder)
 		ldns_rr* db_echo_query = ldns_rr_list_rr(db_echo_queries, i);
 		if (likely(ldns_rr_is_question(db_echo_query)))
 		{
-			db_prehash_t prehash_reply = db_make_prehash(db_echo_packet, db_echo_query, db_ping_socket);
-			db_hash_t hash_reply = db_make_hash(&prehash_reply);
-			db_free_prehash(&prehash_reply);
-			if (likely(db_compare_hashes(&hash_request, &hash_reply)))
+			db_request_data_t reply_data = db_make_request_data(db_echo_packet, db_ping_socket);
+			if (likely(db_compare_request_data(request_data, reply_data)))
 				ret = 1;
-			db_free_hash(&hash_reply);
 			break;
 		}
 	}
 
 pkt_free:
 	ldns_pkt_free(db_echo_packet);
-hash_request_free:
-	db_free_hash(&hash_request);
 ping_buffer_free:
 	free(db_ping_packet_buffer);
 packet_free:

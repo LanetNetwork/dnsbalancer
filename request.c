@@ -28,6 +28,7 @@ db_request_data_t db_make_request_data(ldns_pkt* _packet, int _forwarder_socket)
 	db_request_data_t ret;
 	ldns_rr* rr = NULL;
 	ldns_rdf* owner = NULL;
+	char* owner_str = NULL;
 
 	pfcq_zero(&ret, sizeof(db_request_data_t));
 
@@ -36,7 +37,9 @@ db_request_data_t db_make_request_data(ldns_pkt* _packet, int _forwarder_socket)
 	ret.rr_class = ldns_rr_get_class(rr);
 	owner = ldns_rr_owner(rr);
 	ldns_dname2canonical(owner);
-	ret.fqdn = ldns_rdf2str(owner);
+	owner_str = ldns_rdf2str(owner);
+	strncpy(ret.fqdn, owner_str, HOST_NAME_MAX);
+	free(owner_str);
 	ret.forwarder_socket = _forwarder_socket;
 	ret.hash = crc64speed(0, (uint8_t*)&ret.rr_type, sizeof(ldns_rr_type));
 	ret.hash = crc64speed(ret.hash, (uint8_t*)&ret.rr_class, sizeof(ldns_rr_class));
@@ -46,7 +49,18 @@ db_request_data_t db_make_request_data(ldns_pkt* _packet, int _forwarder_socket)
 	return ret;
 }
 
-struct db_request* db_make_request(ldns_pkt* _packet, db_request_data_t _data, pfcq_net_address_t _address)
+int db_compare_request_data(db_request_data_t _data1, db_request_data_t _data2)
+{
+	return
+		_data1.hash == _data2.hash &&
+		likely(
+			_data1.rr_type == _data2.rr_type &&
+			_data1.rr_class == _data2.rr_class &&
+			_data1.forwarder_socket == _data2.forwarder_socket &&
+			strncmp(_data1.fqdn, _data2.fqdn, HOST_NAME_MAX) == 0);
+}
+
+struct db_request* db_make_request(ldns_pkt* _packet, db_request_data_t _data, pfcq_net_address_t _address, size_t _forwarder_index)
 {
 	struct db_request* ret = NULL;
 
@@ -57,13 +71,15 @@ struct db_request* db_make_request(ldns_pkt* _packet, db_request_data_t _data, p
 	ret->client_address = _address;
 	if (unlikely(clock_gettime(CLOCK_REALTIME, &ret->ctime)))
 		panic("clock_gettime");
+	ret->forwarder_index = _forwarder_index;
 
 	return ret;
 }
 
-void db_insert_request(db_request_list_t* _list, struct db_request* _request)
+size_t db_insert_request(db_request_list_t* _list, struct db_request* _request)
 {
 	size_t index = 0;
+
 	if (unlikely(pthread_spin_lock(&_list->list_index_lock)))
 		panic("pthread_spin_lock");
 	index = _list->list_index;
@@ -78,10 +94,10 @@ void db_insert_request(db_request_list_t* _list, struct db_request* _request)
 	if (unlikely(pthread_mutex_unlock(&_list->list[index].requests_lock)))
 		panic("pthread_mutex_unlock");
 
-	return;
+	return index;
 }
 
-struct db_request* db_find_request(db_request_list_t* _list, size_t _index, db_request_data_t _data)
+struct db_request* db_eject_request(db_request_list_t* _list, size_t _index, db_request_data_t _data)
 {
 	struct db_request* ret = NULL;
 
@@ -90,17 +106,18 @@ struct db_request* db_find_request(db_request_list_t* _list, size_t _index, db_r
 		panic("pthread_mutex_lock");
 	TAILQ_FOREACH(current_request, &_list->list[_index].requests, tailq)
 	{
-		if (current_request->data.hash == _data.hash &&
-			likely(
-				current_request->data.rr_type == _data.rr_type &&
-				current_request->data.rr_class == _data.rr_class &&
-				current_request->data.forwarder_socket == _data.forwarder_socket &&
-				strncmp(current_request->data.fqdn, _data.fqdn, HOST_NAME_MAX) == 0))
+		if (db_compare_request_data(current_request->data, _data))
 		{
 			ret = current_request;
 			break;
 		}
 	}
+	if (likely(ret))
+	{
+		TAILQ_REMOVE(&_list->list[_index].requests, ret, tailq);
+		_list->list[_index].requests_count--;
+	}
+
 	if (unlikely(pthread_mutex_unlock(&_list->list[_index].requests_lock)))
 		panic("pthread_mutex_unlock");
 
@@ -110,8 +127,6 @@ struct db_request* db_find_request(db_request_list_t* _list, size_t _index, db_r
 void db_remove_request_unsafe(db_request_list_t* _list, size_t _index, struct db_request* _request)
 {
 	TAILQ_REMOVE(&_list->list[_index].requests, _request, tailq);
-	pfcq_zero(_request->data.fqdn, strlen(_request->data.fqdn));
-	free(_request->data.fqdn);
 	pfcq_free(_request);
 	_list->list[_index].requests_count--;
 

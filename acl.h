@@ -24,10 +24,10 @@
 #define __ACL_H__
 
 #include <errno.h>
-#include <hash.h>
 #include <netinet/in.h>
 #include <pfcq.h>
 #include <regex.h>
+#include <request.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
 
@@ -98,7 +98,7 @@ TAILQ_HEAD(db_acl, db_acl_item);
 
 void db_acl_free_item(struct db_acl_item* _item) __attribute__((nonnull(1)));
 void db_acl_free_list_item(struct db_list_item* _item) __attribute__((nonnull(1)));
-db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _address, db_prehash_t* _prehash, struct db_acl* _acl) __attribute__((nonnull(2, 3, 4)));
+db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _address, db_request_data_t* _request_data, struct db_acl* _acl) __attribute__((nonnull(2, 3, 4)));
 
 #endif /* __ACL_H__ */
 

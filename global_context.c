@@ -40,20 +40,20 @@ static void* db_gc(void* _data)
 			panic("clock_gettime");
 
 		// Dead sockets cleaner
-		struct db_item* current_item = NULL;
-		struct db_item* tmp_item = NULL;
-		for (size_t i = 0; i < ctx->db_hashlist.size; i++)
+		struct db_request* current_item = NULL;
+		struct db_request* tmp_item = NULL;
+		for (size_t i = 0; i < UINT16_MAX; i++)
 		{
-			if (unlikely(pthread_mutex_lock(&ctx->db_hashlist.list[i].lock)))
+			if (unlikely(pthread_mutex_lock(&ctx->db_requests.list[i].requests_lock)))
 				panic("pthread_mutex_lock");
-			for (current_item = TAILQ_FIRST(&ctx->db_hashlist.list[i].items); current_item; current_item = tmp_item)
+			for (current_item = TAILQ_FIRST(&ctx->db_requests.list[i].requests); current_item; current_item = tmp_item)
 			{
 				tmp_item = TAILQ_NEXT(current_item, tailq);
 				int64_t diff_ns = __pfcq_timespec_diff_ns(current_item->ctime, current_time);
-				if (unlikely(diff_ns >= (int64_t)ctx->db_hashlist.ttl))
-					db_destroy_item_unsafe(&ctx->db_hashlist, i, current_item);
+				if (unlikely(diff_ns >= (int64_t)ctx->db_requests.ttl))
+					db_remove_request_unsafe(&ctx->db_requests, i, current_item);
 			}
-			if (unlikely(pthread_mutex_unlock(&ctx->db_hashlist.list[i].lock)))
+			if (unlikely(pthread_mutex_unlock(&ctx->db_requests.list[i].requests_lock)))
 				panic("pthread_mutex_unlock");
 		}
 
@@ -76,18 +76,20 @@ db_global_context_t* db_global_context_load(const char* _config_file)
 	if (unlikely(!config))
 		stop("Unable to load config file");
 
-	ret->db_hashlist.size = (size_t)iniparser_getint(config, DB_CONFIG_HASHLIST_SIZE_KEY, DB_DEFAULT_HASHLIST_SIZE);
-	ret->db_hashlist.list = pfcq_alloc(ret->db_hashlist.size * sizeof(db_hashitem_t));
-	for (size_t i = 0; i < ret->db_hashlist.size; i++)
+	pfcq_zero(&ret->db_requests.list, UINT16_MAX * sizeof(db_request_bucket_t));
+	ret->db_requests.list_index = 0;
+	if (unlikely(pthread_spin_init(&ret->db_requests.list_index_lock, PTHREAD_PROCESS_PRIVATE)))
+		panic("pthread_spin_init");
+	for (size_t i = 0; i < UINT16_MAX; i++)
 	{
-		pfcq_zero(&ret->db_hashlist.list[i], sizeof(db_hashitem_t));
-		if (unlikely(pthread_mutex_init(&ret->db_hashlist.list[i].lock, NULL)))
+		pfcq_zero(&ret->db_requests.list[i], sizeof(db_request_bucket_t));
+		if (unlikely(pthread_mutex_init(&ret->db_requests.list[i].requests_lock, NULL)))
 			panic("pthread_mutex_init");
-		TAILQ_INIT(&ret->db_hashlist.list[i].items);
+		TAILQ_INIT(&ret->db_requests.list[i].requests);
 	}
 
-	ret->db_hashlist.ttl = ((uint64_t)iniparser_getint(config, DB_CONFIG_HASHLIST_TTL_KEY, DB_DEFAULT_HASHLIST_TTL)) * 1000000ULL;
-	if (unlikely(ret->db_hashlist.ttl > INT64_MAX))
+	ret->db_requests.ttl = ((uint64_t)iniparser_getint(config, DB_CONFIG_HASHLIST_TTL_KEY, DB_DEFAULT_HASHLIST_TTL)) * 1000000ULL;
+	if (unlikely(ret->db_requests.ttl > INT64_MAX))
 	{
 		inform("Hashlist TTL must not exceed %ld ms.\n", INT64_MAX);
 		stop("Are you OK?");
@@ -107,17 +109,20 @@ void db_global_context_unload(db_global_context_t* _g_ctx)
 	pfpthq_wait(_g_ctx->gc_pool);
 	pfpthq_done(_g_ctx->gc_pool);
 
-	for (size_t i = 0; i < _g_ctx->db_hashlist.size; i++)
+	for (size_t i = 0; i < UINT16_MAX; i++)
 	{
-		while (likely(!TAILQ_EMPTY(&_g_ctx->db_hashlist.list[i].items)))
+		while (likely(!TAILQ_EMPTY(&_g_ctx->db_requests.list[i].requests)))
 		{
-			struct db_item* current_item = TAILQ_FIRST(&_g_ctx->db_hashlist.list[i].items);
-			db_destroy_item_unsafe(&_g_ctx->db_hashlist, i, current_item);
+			struct db_request* current_item = TAILQ_FIRST(&_g_ctx->db_requests.list[i].requests);
+			db_remove_request_unsafe(&_g_ctx->db_requests, i, current_item);
 		}
-		if (unlikely(pthread_mutex_destroy(&_g_ctx->db_hashlist.list[i].lock)))
+		if (unlikely(pthread_mutex_destroy(&_g_ctx->db_requests.list[i].requests_lock)))
 			panic("pthread_mutex_destroy");
 	}
-	pfcq_free(_g_ctx->db_hashlist.list);
+	pfcq_zero(_g_ctx->db_requests.list, UINT16_MAX * sizeof(db_request_bucket_t));
+	_g_ctx->db_requests.list_index = 0;
+	if (unlikely(pthread_spin_destroy(&_g_ctx->db_requests.list_index_lock)))
+		panic("pthread_spin_destroy");
 
 	pfcq_free(_g_ctx);
 

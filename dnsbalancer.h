@@ -25,7 +25,6 @@
 
 #include <acl.h>
 #include <errno.h>
-#include <hashitems.h>
 #include <pfcq.h>
 #include <pfpthq.h>
 #include <sys/queue.h>
@@ -41,7 +40,6 @@
 #define APP_PROGRAMMER						"Oleksandr Natalenko"
 #define APP_EMAIL							"o.natalenko@lanet.ua"
 
-#define DB_CONFIG_HASHLIST_SIZE_KEY			"general:hashlist_size"
 #define DB_CONFIG_HASHLIST_TTL_KEY			"general:hashlist_ttl"
 #define DB_CONFIG_GC_INTERVAL_KEY			"general:gc_interval"
 #define DB_CONFIG_WATCHDOG_INTERVAL_KEY		"general:watchdog_interval"
@@ -72,7 +70,6 @@
 #define DB_CONFIG_ACL_SOURCE_LOCAL			"local"
 #define DB_CONFIG_ACL_SOURCE_MYSQL			"mysql"
 #define DB_DEFAULT_RLIMIT					32768
-#define DB_DEFAULT_HASHLIST_SIZE			1024
 #define DB_DEFAULT_HASHLIST_TTL				10000
 #define DB_DEFAULT_GC_INTERVAL				1000
 #define DB_DEFAULT_WATCHDOG_INTERVAL		1000
@@ -197,7 +194,7 @@ struct db_local_context
 
 struct db_global_context
 {
-	db_hashlist_t db_hashlist;
+	db_request_list_t db_requests;
 	pfpthq_pool_t* gc_pool;
 	pthread_t gc_id;
 	uint64_t db_gc_interval;

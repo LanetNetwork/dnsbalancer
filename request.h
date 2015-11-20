@@ -24,6 +24,7 @@
 #define __REQUEST_H__
 
 #include <ldns/ldns.h>
+#include <limits.h>
 #include <pfcq.h>
 #include <sys/queue.h>
 
@@ -31,7 +32,7 @@ typedef struct db_request_data
 {
 	ldns_rr_type rr_type;
 	ldns_rr_class rr_class;
-	char* fqdn;
+	char fqdn[HOST_NAME_MAX];
 	int forwarder_socket;
 	int __padding1;
 	uint64_t hash;
@@ -45,6 +46,7 @@ struct db_request
 	db_request_data_t data;
 	pfcq_net_address_t client_address;
 	struct timespec ctime;
+	size_t forwarder_index;
 };
 
 TAILQ_HEAD(db_requests, db_request);
@@ -66,9 +68,10 @@ typedef struct db_request_list
 } db_request_list_t;
 
 db_request_data_t db_make_request_data(ldns_pkt* _packet, int _forwarder_socket) __attribute__((nonnull(1)));
-struct db_request* db_make_request(ldns_pkt* _packet, db_request_data_t _data, pfcq_net_address_t _address) __attribute__((nonnull(1)));
-void db_insert_request(db_request_list_t* _list, struct db_request* _request) __attribute__((nonnull(1, 2)));
-struct db_request* db_find_request(db_request_list_t* _list, size_t _index, db_request_data_t _data) __attribute__((nonnull(1)));
+int db_compare_request_data(db_request_data_t _data1, db_request_data_t _data2);
+struct db_request* db_make_request(ldns_pkt* _packet, db_request_data_t _data, pfcq_net_address_t _address, size_t _forwarder_index) __attribute__((nonnull(1)));
+size_t db_insert_request(db_request_list_t* _list, struct db_request* _request) __attribute__((nonnull(1, 2)));
+struct db_request* db_eject_request(db_request_list_t* _list, size_t _index, db_request_data_t _data) __attribute__((nonnull(1)));
 void db_remove_request_unsafe(db_request_list_t* _list, size_t _index, struct db_request* _request) __attribute__((nonnull(1, 3)));
 
 #endif /* __REQUEST_H__ */

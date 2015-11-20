@@ -18,7 +18,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <hashitems.h>
 #include <microhttpd.h>
 #include <stats.h>
 #include <string.h>

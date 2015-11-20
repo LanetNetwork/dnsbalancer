@@ -57,8 +57,6 @@ add_executable(dnsbalancer
 	crc64speed.c
 	dnsbalancer.c
 	global_context.c
-	hash.c
-	hashitems.c
 	local_context.c
 	request.c
 	stats.c)
