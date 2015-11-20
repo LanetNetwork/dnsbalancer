@@ -1,8 +1,7 @@
 [general]
 rlimit=32768
 frontends=fe_dns
-hashlist_size=1021
-hashlist_ttl=10000
+request_ttl=10000
 gc_interval=1000
 watchdog_interval=1000
 

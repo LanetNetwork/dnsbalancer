@@ -88,10 +88,10 @@ db_global_context_t* db_global_context_load(const char* _config_file)
 		TAILQ_INIT(&ret->db_requests.list[i].requests);
 	}
 
-	ret->db_requests.ttl = ((uint64_t)iniparser_getint(config, DB_CONFIG_HASHLIST_TTL_KEY, DB_DEFAULT_HASHLIST_TTL)) * 1000000ULL;
+	ret->db_requests.ttl = ((uint64_t)iniparser_getint(config, DB_CONFIG_REQUEST_TTL_KEY, DB_DEFAULT_REQUEST_TTL)) * 1000000ULL;
 	if (unlikely(ret->db_requests.ttl > INT64_MAX))
 	{
-		inform("Hashlist TTL must not exceed %ld ms.\n", INT64_MAX);
+		inform("Request TTL must not exceed %ld ms.\n", INT64_MAX);
 		stop("Are you OK?");
 	}
 

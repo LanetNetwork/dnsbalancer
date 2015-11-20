@@ -445,10 +445,7 @@ static void* db_worker(void* _data)
 									break;
 							}
 
-							// Make request ID from query string and DNS packet ID.
-							// CRC64 hash is used to distribute requests over hash tables,
-							// raw hash is used to select record from specific table
-							// when answering to request
+							// Put all info about new request into request table
 							struct db_request* new_request = db_make_request(client_query_packet, request_data, address, forwarder_index);
 							new_id = db_insert_request(&data->g_ctx->db_requests, new_request);
 							break;
@@ -493,12 +490,13 @@ denied:
 						ldns_rr* backend_query = ldns_rr_list_rr(backend_queries, j);
 						if (likely(ldns_rr_is_question(backend_query)))
 						{
-							// Calculate answer ID from DNS metadata
+							// Get DNS response data
 							db_request_data_t request_data = db_make_request_data(backend_answer_packet, epoll_events[i].data.fd);
-							// Select info from hash table
+							// Select request from request table
 							struct db_request* found_request = db_eject_request(&data->g_ctx->db_requests, ldns_pkt_id(backend_answer_packet), request_data);
 							if (likely(found_request))
 							{
+								// Restore original request ID
 								ldns_pkt_set_id(backend_answer_packet, found_request->original_id);
 								uint8_t* response_buffer = NULL;
 								size_t response_buffer_size = 0;

@@ -19,31 +19,24 @@ for it;
 DNS packet, dnsbalancer silently drops it;
 4. if, otherwise, accepted UDP packet is valid DNS query, dnsbalancer extracts
 query information from it and checks request against ACL;
-5. if packet passes ACL, dnsbalancer calculates its CRC64 and stores it in internal
-hash table along with client socket information;
-6. then unmodified DNS packet is sent to selected forwarder;
+5. if packet passes ACL, dnsbalancer stores it in internal request table along
+with client socket information;
+6. then DNS packet with substituted ID is sent to selected forwarder;
 7. when the forwarder sends reply back, dnsbalancer accepts it first;
 8. then dnsbalancer parses received answer into ldns\_pkt structure, dropping
 invalid packets;
-9. to select client to forward answer to, dnsbalancer must again calculate CRC64
-of received answer and find appropriate client socket in hash table;
-10. if there is appropriate record in hash table, dnsbalancer finds it, selects
-client socket, sends answer to it and removes info about DNS packet from hash table.
+9. to select client to forward answer to, dnsbalancer retrieves original query ID
+from request table along with appropriate client socket;
+10. finally, dnsbalancer sends answer to client and removes request from request table.
 
-Meanwhile, garbage collector thread works, and if hash table contains too old records,
+Meanwhile, garbage collector thread works, and if request table contains too old records,
 they are removed periodically. Almost all the errors are silently ignored (but wisely
 handled through error paths), and statistic info is updated appropriately.
 
-Here is the list of DNS packet fields involved in CRC64 calculation:
-
-1. DNS query ID;
-2. DNS query type;
-3. DNS query class;
-4. DNS query FQDN.
-
-Also, forwarder socket number is used in CRC64 calculation as well. These 5 values
-are sufficient to connect DNS requests and replies unambiguously. If, however, CRC64
-hash collision happens, it is handled via simple linear list under separate lock.
+To avoid 2^16 concurrent requests limit, request table consists of collision buckets.
+If there are 2 or more requests sent to forwarder with the same ID, they are stored
+in linked list. To speed up linked list lookup under high load, CRC64 hash of DNS
+data is used.
 
 Configuration
 -------------
@@ -54,8 +47,7 @@ Here is an example with default values:
 ```ini
 [general]
 rlimit=32768
-hashlist_size=1021
-hashlist_ttl=10000
+request_ttl=10000
 gc_interval=1000
 watchdog_interval=1000
 frontends=fe_dns
@@ -108,16 +100,11 @@ weight=1
 `general` section holds common parameters and comma-delimited list of frontends:
 
 * `rlimit` specifies file descriptors count (RLIMIT\_NOFILE) for current dnsbalancer instance;
-* `hashlist_size` specifies the size of hashmap that holds DNS queries; specifying
-big values could result in performance improvements due to narrowing hash collision domains,
-however big hashlists consume more RAM; the semi-optimal value could be the average number of
-concurrent items stored in hashlist (that means, the average value of concurrent DNS requests); also
-use prime numbers only to make hash distribution more uniform;
-* `hashlist_ttl` specifies hashitem TTL in milliseconds; usually, 10 seconds is more than enough
+* `request_ttl` specifies request TTL in milliseconds; usually, 10 seconds is more than enough
 as normal DNS forwarders should answer within 200 ms; specifying small values could result
 in eliminating RAM usage but also in query drops;
 * `gc_interval` specifies GC invocation interval in milliseconds; GC (garbage collector) is a timer
-thread that does cleaning up hashlist for orphaned (stalled) items (DNS requests that are lost
+thread that does cleaning up request table for orphaned (stalled) items (DNS requests that are lost
 by underlying forwarders); if balancer should serve very high load, you may try to increase this value;
 * `watchdog_interval` specifies watchdog invocation interval in milliseconds; it is a timer
 thread that does polling forwarders.
