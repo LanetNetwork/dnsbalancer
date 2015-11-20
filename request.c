@@ -79,12 +79,14 @@ struct db_request* db_make_request(ldns_pkt* _packet, db_request_data_t _data, p
 uint16_t db_insert_request(db_request_list_t* _list, struct db_request* _request)
 {
 	uint16_t index = 0;
+	uint32_t index_container = 0;
 
 	if (unlikely(pthread_spin_lock(&_list->list_index_lock)))
 		panic("pthread_spin_lock");
 	index = _list->list_index;
-	// May intentionally overflow here (wrap around)
-	_list->list_index++;
+	index_container = _list->list_index;
+	index_container++;
+	_list->list_index = (uint16_t)(index_container % UINT16_MAX);
 	if (unlikely(pthread_spin_unlock(&_list->list_index_lock)))
 		panic("pthread_spin_unlock");
 
