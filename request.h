@@ -58,7 +58,7 @@ typedef struct db_request_bucket
 
 typedef struct db_request_list
 {
-	db_request_bucket_t list[UINT16_MAX];
+	db_request_bucket_t list[UINT16_MAX + 1];
 	uint16_t list_index;
 	pthread_spinlock_t list_index_lock;
 	uint64_t ttl;

@@ -118,9 +118,9 @@ typedef struct db_forwarder
 {
 	char* name;
 	sa_family_t layer3;
-	pfcq_net_address_t address;
 	unsigned short int alive;
 	unsigned short int fails;
+	pfcq_net_address_t address;
 	size_t check_attempts;
 	uint64_t check_timeout;
 	char* check_query;
