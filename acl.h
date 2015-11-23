@@ -65,7 +65,6 @@ struct db_list_item
 	size_t s_value_length;
 	uint64_t s_value_hash;
 	unsigned short int regex_compiled;
-	int __padding1:32;
 	regex_t regex;
 };
 
@@ -82,11 +81,9 @@ struct db_acl_item
 	char* s_action;
 	char* s_action_parameters;
 	sa_family_t layer3;
-	int __padding1:32;
 	pfcq_in_address_t address;
 	pfcq_in_address_t netmask;
 	db_acl_matcher_t matcher;
-	int __padding2:32;
 	struct db_list list;
 	db_acl_action_t action;
 	db_acl_action_parameters_t action_parameters;

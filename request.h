@@ -34,7 +34,6 @@ typedef struct db_request_data
 	ldns_rr_class rr_class;
 	char fqdn[HOST_NAME_MAX];
 	int forwarder_socket;
-	int __padding1;
 	uint64_t hash;
 } db_request_data_t;
 
@@ -42,7 +41,6 @@ struct db_request
 {
 	TAILQ_ENTRY(db_request) tailq;
 	uint16_t original_id;
-	int __padding1:32;
 	db_request_data_t data;
 	pfcq_net_address_t client_address;
 	struct timespec ctime;
@@ -62,7 +60,6 @@ typedef struct db_request_list
 {
 	db_request_bucket_t list[UINT16_MAX];
 	uint16_t list_index;
-	int __padding1:16;
 	pthread_spinlock_t list_index_lock;
 	uint64_t ttl;
 } db_request_list_t;

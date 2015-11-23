@@ -118,11 +118,9 @@ typedef struct db_forwarder
 {
 	char* name;
 	sa_family_t layer3;
-	int __padding1:32;
 	pfcq_net_address_t address;
 	unsigned short int alive;
 	unsigned short int fails;
-	int __padding2;
 	size_t check_attempts;
 	uint64_t check_timeout;
 	char* check_query;
@@ -156,7 +154,6 @@ typedef struct db_frontend_stats
 	pthread_spinlock_t in_lock;
 	pthread_spinlock_t out_lock;
 	pthread_spinlock_t in_invalid_lock;
-	int __padding1;
 } db_frontend_stats_t;
 
 typedef struct db_local_context db_local_context_t;
@@ -172,7 +169,6 @@ typedef struct db_frontend
 	int workers;
 	db_acl_source_t acl_source;
 	sa_family_t layer3;
-	int __padding1:32;
 	db_global_context_t* g_ctx;
 	db_backend_t backend;
 	db_frontend_stats_t stats;
@@ -188,7 +184,6 @@ struct db_local_context
 	uint64_t db_watchdog_interval;
 	unsigned short int stats_enabled;
 	sa_family_t stats_layer3_family;
-	int __padding1;
 	pfcq_net_address_t stats_address;
 };
 
