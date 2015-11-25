@@ -453,8 +453,8 @@ static void* db_worker(void* _data)
 									ldns_rr_list_free(nxdomain_rr_list);
 									ldns_pkt_free(nxdomain_packet);
 									pfcq_zero(nxdomain_buffer, nxdomain_buffer_size);
-									nxdomain_buffer = NULL;
 									free(nxdomain_buffer);
+									nxdomain_buffer = NULL;
 									break;
 								}
 								case DB_ACL_ACTION_SET_A:
