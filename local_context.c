@@ -379,26 +379,45 @@ static void* db_worker(void* _data)
 					}
 					ldns_rr_list* client_queries = ldns_pkt_question(client_query_packet);
 					size_t client_queries_count = ldns_rr_list_rr_count(client_queries);
-					uint16_t new_id = 0;
-					db_request_data_t request_data;
 					for (size_t j = 0; j < client_queries_count; j++)
 					{
 						ldns_rr* client_query = ldns_rr_list_rr(client_queries, j);
 						if (likely(ldns_rr_is_question(client_query)))
 						{
 							// Extract query info
-							request_data = db_make_request_data(client_query_packet, forwarders[forwarder_index]);
+							db_request_data_t request_data = db_make_request_data(client_query_packet, forwarders[forwarder_index]);
 
 							// Check query against ACL
 							switch (db_check_query_acl(data->layer3, &address, &request_data, &data->acl))
 							{
 								case DB_ACL_ACTION_ALLOW:
+								{
+									// Put all info about new request into request table
+									struct db_request* new_request = db_make_request(client_query_packet, request_data, address, forwarder_index);
+									// Get new request ID
+									uint16_t new_id = db_insert_request(&data->g_ctx->db_requests, new_request);
+
+									// Create new DNS query packet with substituted ID
+									ldns_pkt_set_id(client_query_packet, new_id);
+									uint8_t* request_buffer = NULL;
+									size_t request_buffer_size = 0;
+									ldns_pkt2wire(&request_buffer, client_query_packet, &request_buffer_size);
+
+									// Forward new request to forwarder
+									ssize_t send_res = send(forwarders[forwarder_index], request_buffer, request_buffer_size, 0);
+									if (likely(send_res != -1))
+										db_stats_forwarder_in(data->backend.forwarders[forwarder_index], send_res);
+									pfcq_zero(request_buffer, request_buffer_size);
+									free(request_buffer);
+									request_buffer = NULL;
 									break;
+								}
 								case DB_ACL_ACTION_DENY:
-									goto denied;
+									// Silently drop request, do nothing
 									break;
 								case DB_ACL_ACTION_NXDOMAIN:
 								{
+									// Create NXDOMAIN response packet
 									ldns_pkt* nxdomain_packet = ldns_pkt_new();
 
 									ldns_pkt_set_id(nxdomain_packet, ldns_pkt_id(client_query_packet));
@@ -408,9 +427,11 @@ static void* db_worker(void* _data)
 									ldns_pkt_set_opcode(nxdomain_packet, LDNS_PACKET_QUERY);
 									ldns_pkt_set_rcode(nxdomain_packet, LDNS_RCODE_NXDOMAIN);
 
+									// Dup queries into NXDOMAIN response
 									ldns_rr_list* nxdomain_rr_list = ldns_rr_list_clone(client_queries);
 									ldns_pkt_push_rr_list(nxdomain_packet, LDNS_SECTION_QUESTION, nxdomain_rr_list);
 
+									// Send NXDOMAIN to client
 									uint8_t* nxdomain_buffer = NULL;
 									size_t nxdomain_buffer_size;
 									ldns_pkt2wire(&nxdomain_buffer, nxdomain_packet, &nxdomain_buffer_size);
@@ -434,37 +455,21 @@ static void* db_worker(void* _data)
 									pfcq_zero(nxdomain_buffer, nxdomain_buffer_size);
 									nxdomain_buffer = NULL;
 									free(nxdomain_buffer);
-
-									goto denied;
-									// break; omitted
+									break;
 								}
 								case DB_ACL_ACTION_SET_A:
+									// TODO: return specific A record
 									break;
 								default:
 									panic("Unknown ACL action occurred");
 									break;
 							}
 
-							// Put all info about new request into request table
-							struct db_request* new_request = db_make_request(client_query_packet, request_data, address, forwarder_index);
-							new_id = db_insert_request(&data->g_ctx->db_requests, new_request);
+							// Only 1 query is processed within 1 DNS packet
 							break;
 						}
 					}
 
-					// Forward request to forwarder with new ID
-					ldns_pkt_set_id(client_query_packet, new_id);
-					uint8_t* request_buffer = NULL;
-					size_t request_buffer_size = 0;
-					ldns_pkt2wire(&request_buffer, client_query_packet, &request_buffer_size);
-
-					ssize_t send_res = send(forwarders[forwarder_index], request_buffer, request_buffer_size, 0);
-					if (likely(send_res != -1))
-						db_stats_forwarder_in(data->backend.forwarders[forwarder_index], send_res);
-					pfcq_zero(request_buffer, request_buffer_size);
-					free(request_buffer);
-					request_buffer = NULL;
-denied:
 					ldns_pkt_free(client_query_packet);
 				} else
 				{
