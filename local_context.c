@@ -32,7 +32,7 @@
 
 extern volatile sig_atomic_t should_exit;
 
-static uint64_t db_sockaddr_addr_crc64(sa_family_t _family, void* _sockaddr)
+static uint64_t db_netaddr_addr_crc64(sa_family_t _family, pfcq_net_address_t _netaddr)
 {
 	uint64_t ret = 0;
 	unsigned long s_addr = 0;
@@ -40,21 +40,18 @@ static uint64_t db_sockaddr_addr_crc64(sa_family_t _family, void* _sockaddr)
 	const uint8_t* s6_addr_buf = NULL;
 	uint32_t* s6_addr_piece = NULL;
 	uint32_t s6_addr_piece_h = 0;
-	pfcq_net_address_t address;
 
 	switch (_family)
 	{
 		case PF_INET:
-			memcpy(&address.address4, _sockaddr, sizeof(struct sockaddr_in));
-			s_addr = ntohl(address.address4.sin_addr.s_addr);
+			s_addr = ntohl(_netaddr.address4.sin_addr.s_addr);
 			s_addr_buf = (const uint8_t*)&s_addr;
 			ret = crc64speed(0, s_addr_buf, sizeof(unsigned long));
 			break;
 		case PF_INET6:
-			memcpy(&address.address6, _sockaddr, sizeof(struct sockaddr_in6));
-			for (size_t i = 0; i < sizeof(address.address6.sin6_addr.s6_addr); i += sizeof(address.address6.sin6_addr.s6_addr) / sizeof(uint32_t))
+			for (size_t i = 0; i < sizeof(_netaddr.address6.sin6_addr.s6_addr); i += sizeof(_netaddr.address6.sin6_addr.s6_addr) / sizeof(uint32_t))
 			{
-				s6_addr_piece = (uint32_t*)&address.address6.sin6_addr.s6_addr[i];
+				s6_addr_piece = (uint32_t*)&_netaddr.address6.sin6_addr.s6_addr[i];
 				s6_addr_piece_h = ntohl(*s6_addr_piece);
 				s6_addr_buf = (const uint8_t*)&s6_addr_piece_h;
 				ret = crc64speed(ret, s6_addr_buf, sizeof(uint32_t));
@@ -68,24 +65,21 @@ static uint64_t db_sockaddr_addr_crc64(sa_family_t _family, void* _sockaddr)
 	return ret;
 }
 
-static uint64_t db_sockaddr_port_crc64(sa_family_t _family, void* _sockaddr)
+static uint64_t db_netaddr_port_crc64(sa_family_t _family, pfcq_net_address_t _netaddr)
 {
 	uint64_t ret = 0;
 	unsigned short u_port = 0;
 	const uint8_t* u_port_buf = NULL;
-	pfcq_net_address_t address;
 
 	switch (_family)
 	{
 		case PF_INET:
-			memcpy(&address.address4, _sockaddr, sizeof(struct sockaddr_in));
-			u_port = ntohs(address.address4.sin_port);
+			u_port = ntohs(_netaddr.address4.sin_port);
 			u_port_buf = (const uint8_t*)&u_port;
 			ret = crc64speed(0, u_port_buf, sizeof(unsigned short));
 			break;
 		case PF_INET6:
-			memcpy(&address.address6, _sockaddr, sizeof(struct sockaddr_in6));
-			u_port = ntohs(address.address6.sin6_port);
+			u_port = ntohs(_netaddr.address6.sin6_port);
 			u_port_buf = (const uint8_t*)&u_port;
 			ret = crc64speed(0, u_port_buf, sizeof(unsigned short));
 			break;
@@ -114,8 +108,7 @@ __attribute__((always_inline)) static inline ssize_t __db_find_alive_forwarder_b
 	return ret;
 }
 
-
-static ssize_t db_find_alive_forwarder(db_frontend_t* _frontend, pfcq_fprng_context_t* _fprng_context, void* _sockaddr)
+static ssize_t db_find_alive_forwarder(db_frontend_t* _frontend, pfcq_fprng_context_t* _fprng_context, pfcq_net_address_t _netaddr)
 {
 	if (unlikely(!_frontend))
 		return -1;
@@ -183,17 +176,17 @@ static ssize_t db_find_alive_forwarder(db_frontend_t* _frontend, pfcq_fprng_cont
 					}
 			break;
 		case DB_BE_MODE_HASH_L3_L4:
-			crc1 = db_sockaddr_addr_crc64(_frontend->layer3, _sockaddr);
-			crc2 = db_sockaddr_port_crc64(_frontend->layer3, _sockaddr);
+			crc1 = db_netaddr_addr_crc64(_frontend->layer3, _netaddr);
+			crc2 = db_netaddr_port_crc64(_frontend->layer3, _netaddr);
 			xor = crc1 ^ crc2;
 			ret = __db_find_alive_forwarder_by_offset(xor, &_frontend->backend);
 			break;
 		case DB_BE_MODE_HASH_L3:
-			xor = db_sockaddr_addr_crc64(_frontend->layer3, _sockaddr);
+			xor = db_netaddr_addr_crc64(_frontend->layer3, _netaddr);
 			ret = __db_find_alive_forwarder_by_offset(xor, &_frontend->backend);
 			break;
 		case DB_BE_MODE_HASH_L4:
-			xor = db_sockaddr_port_crc64(_frontend->layer3, _sockaddr);
+			xor = db_netaddr_port_crc64(_frontend->layer3, _netaddr);
 			ret = __db_find_alive_forwarder_by_offset(xor, &_frontend->backend);
 			break;
 		default:
@@ -348,19 +341,7 @@ static void* db_worker(void* _data)
 					db_stats_frontend_in(data, query_size);
 
 					// Find alive forwarder
-					ssize_t forwarder_index = -1;
-					switch (data->layer3)
-					{
-						case PF_INET:
-							forwarder_index = db_find_alive_forwarder(data, &fprng_context, (void*)&address.address4);
-							break;
-						case PF_INET6:
-							forwarder_index = db_find_alive_forwarder(data, &fprng_context, (void*)&address.address6);
-							break;
-						default:
-							panic("socket domain");
-							break;
-					}
+					ssize_t forwarder_index = db_find_alive_forwarder(data, &fprng_context, address);
 					if (unlikely(forwarder_index == -1))
 						continue;
 
