@@ -23,8 +23,6 @@
 #ifndef __WATCHDOG_H__
 #define __WATCHDOG_H__
 
-#include <dnsbalancer.h>
-
 int db_ping_forwarder(db_forwarder_t* _forwarder) __attribute__((nonnull(1)));
 void* db_watchdog(void* _data) __attribute__((nonnull(1)));
 

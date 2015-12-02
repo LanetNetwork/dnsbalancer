@@ -57,7 +57,9 @@ add_executable(dnsbalancer
 	local_context.c
 	request.c
 	stats.c
-	watchdog.c)
+	utils.c
+	watchdog.c
+	worker.c)
 
 target_link_libraries(dnsbalancer
 	pthread

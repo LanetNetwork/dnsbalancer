@@ -27,7 +27,6 @@
 #include <errno.h>
 #include <pfcq.h>
 #include <pfpthq.h>
-#include <sys/queue.h>
 
 #if !defined(SO_REUSEPORT)
 #error "SO_REUSEPORT is undeclared (pre-3.9 Linux kernel?)"

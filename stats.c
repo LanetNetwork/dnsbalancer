@@ -18,6 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <local_context.h>
 #include <microhttpd.h>
 #include <stats.h>
 #include <string.h>
