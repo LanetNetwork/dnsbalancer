@@ -79,14 +79,6 @@
 #define DB_DEFAULT_FORWARDER_CHECK_ATTEMPTS	3
 #define DB_DEFAULT_FORWARDER_CHECK_TIMEOUT	500
 #define DB_DEFAULT_WEIGHT					1
-#define DB_1_SEC_NS							(1000LL * 1000 * 1000)
-#define DB_1_MIN_S							(60LL)
-#define DB_5_MINS_S							(5 * DB_1_MIN_S)
-#define DB_15_MINS_S						(15 * DB_1_MIN_S)
-#define DB_1_MIN_NS							(DB_1_MIN_S * DB_1_SEC_NS)
-#define DB_5_MINS_NS						(5 * DB_1_MIN_NS)
-#define DB_15_MINS_NS						(15 * DB_1_MIN_NS)
-#define DB_LOADAVG_ITEM_TTL					DB_15_MINS_NS
 
 typedef enum db_backend_mode
 {
