@@ -32,9 +32,6 @@ extern volatile sig_atomic_t should_exit;
 
 void* db_worker(void* _data)
 {
-	if (unlikely(!_data))
-		return NULL;
-
 	db_frontend_t* data = _data;
 	int option = 1;
 	int epoll_fd = -1;

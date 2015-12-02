@@ -119,8 +119,6 @@ out:
 
 void* db_watchdog(void* _data)
 {
-	if (unlikely(!_data))
-		return NULL;
 	db_local_context_t* ctx = _data;
 
 	for (;;)
