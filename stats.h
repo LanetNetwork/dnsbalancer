@@ -24,6 +24,7 @@
 #define __STATS_H__
 
 #include <dnsbalancer.h>
+#include <local_context.h>
 
 void db_stats_frontend_in(db_frontend_t* _frontend, uint64_t _delta_bytes) __attribute__((nonnull(1)));
 void db_stats_frontend_in_invalid(db_frontend_t* _frontend, uint64_t _delta_bytes) __attribute__((nonnull(1)));

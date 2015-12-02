@@ -24,6 +24,19 @@
 #define __LOCAL_CONTEXT_H__
 
 #include <dnsbalancer.h>
+#include <global_context.h>
+
+struct db_local_context
+{
+	db_frontend_t** frontends;
+	size_t frontends_count;
+	pfpthq_pool_t* watchdog_pool;
+	pthread_t watchdog_id;
+	uint64_t db_watchdog_interval;
+	unsigned short int stats_enabled;
+	sa_family_t stats_layer3_family;
+	pfcq_net_address_t stats_address;
+};
 
 db_local_context_t* db_local_context_load(const char* _config_file, db_global_context_t* _g_ctx) __attribute__((nonnull(1, 2)));
 void db_local_context_unload(db_local_context_t* _l_ctx) __attribute__((nonnull(1)));
