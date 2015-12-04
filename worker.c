@@ -208,19 +208,13 @@ void* db_worker(void* _data)
 									// Get new request ID
 									uint16_t new_id = db_insert_request(&data->g_ctx->db_requests, new_request);
 
-									// Create new DNS query packet with substituted ID
-									ldns_pkt_set_id(client_query_packet, new_id);
-									uint8_t* request_buffer = NULL;
-									size_t request_buffer_size = 0;
-									ldns_pkt2wire(&request_buffer, client_query_packet, &request_buffer_size);
+									// Substitute new ID to client DNS query
+									*(uint16_t*)server_buffer = htons(new_id);
 
 									// Forward new request to forwarder
-									ssize_t send_res = send(forwarders[forwarder_index], request_buffer, request_buffer_size, 0);
+									ssize_t send_res = send(forwarders[forwarder_index], server_buffer, query_size, 0);
 									if (likely(send_res != -1))
 										db_stats_forwarder_in(data->backend.forwarders[forwarder_index], send_res);
-									pfcq_zero(request_buffer, request_buffer_size);
-									free(request_buffer);
-									request_buffer = NULL;
 									break;
 								}
 								case DB_ACL_ACTION_DENY:
@@ -312,11 +306,8 @@ void* db_worker(void* _data)
 							struct db_request* found_request = db_eject_request(&data->g_ctx->db_requests, ldns_pkt_id(backend_answer_packet), request_data);
 							if (likely(found_request))
 							{
-								// Restore original request ID
-								ldns_pkt_set_id(backend_answer_packet, found_request->original_id);
-								uint8_t* response_buffer = NULL;
-								size_t response_buffer_size = 0;
-								ldns_pkt2wire(&response_buffer, backend_answer_packet, &response_buffer_size);
+								// Substitute original request ID to response
+								*(uint16_t*)backend_buffer = htons(found_request->original_id);
 
 								ldns_pkt_rcode backend_answer_packet_rcode = ldns_pkt_get_rcode(backend_answer_packet);
 								db_stats_forwarder_out(data->backend.forwarders[found_request->forwarder_index], answer_size, backend_answer_packet_rcode);
@@ -325,20 +316,17 @@ void* db_worker(void* _data)
 								switch (data->layer3)
 								{
 									case PF_INET:
-										sendto_res = sendto(server, response_buffer, response_buffer_size, 0,
+										sendto_res = sendto(server, backend_buffer, answer_size, 0,
 												(const struct sockaddr*)&found_request->client_address.address4, (socklen_t)sizeof(struct sockaddr_in));
 										break;
 									case PF_INET6:
-										sendto_res = sendto(server, response_buffer, response_buffer_size, 0,
+										sendto_res = sendto(server, backend_buffer, answer_size, 0,
 												(const struct sockaddr*)&found_request->client_address.address6, (socklen_t)sizeof(struct sockaddr_in6));
 										break;
 									default:
 										panic("socket domain");
 										break;
 								}
-								pfcq_zero(response_buffer, response_buffer_size);
-								free(response_buffer);
-								response_buffer = NULL;
 								pfcq_free(found_request);
 								if (likely(sendto_res != -1))
 									db_stats_frontend_out(data, sendto_res, backend_answer_packet_rcode);
