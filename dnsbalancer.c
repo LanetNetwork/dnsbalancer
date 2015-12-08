@@ -18,6 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <bsd/sys/cdefs.h>
 #include <bsd/unistd.h>
 #include <crc64speed.h>
 #include <getopt.h>
