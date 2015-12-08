@@ -163,7 +163,7 @@ int main(int argc, char** argv, char** envp)
 		panic("pthread_sigmask");
 
 	setproctitle_init(argc, argv, envp);
-	setproctitle("Serving %u frontend(s)", l_ctx->frontends_count);
+	setproctitle("Serving %lu frontend(s)", l_ctx->frontends_count);
 
 	db_stats_init(l_ctx);
 
