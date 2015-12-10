@@ -22,6 +22,7 @@
 #include <microhttpd.h>
 #include <stats.h>
 #include <string.h>
+#include <utils.h>
 
 static db_local_context_t* ctx = NULL;
 static struct MHD_Daemon* mhd_daemon = NULL;
@@ -281,21 +282,21 @@ static int db_answer_to_connection(void* _data,
 	}  else if (strcmp(_url, "/lats") == 0)
 	{
 		char* lats = pfcq_mstring("%s\n", "# us, hits");
-		for (size_t i = 0; i < DB_LATENCY_BUCKETS; i++)
+		for (size_t i = 0; i < DB_LATENCY_BUCKETS - 1; i++)
 		{
 			char* row = NULL;
 			if (unlikely(pthread_spin_lock(&db_lats.lats_lock[i])))
 				panic("pthread_spin_lock");
-			row = pfcq_mstring("%lu, %ju\n", 1UL << (i + DB_LATENCY_FIRST), db_lats.lats[i]);
+			row = pfcq_mstring("LAT,%lu,%ju\n", 1UL << i, db_lats.lats[i]);
 			if (unlikely(pthread_spin_unlock(&db_lats.lats_lock[i])))
 				panic("pthread_spin_unlock");
 			lats = pfcq_cstring(lats, row);
 			pfcq_free(row);
 		}
-		if (unlikely(pthread_spin_lock(&db_lats.lats_lock[DB_LATENCY_BUCKETS])))
+		if (unlikely(pthread_spin_lock(&db_lats.lats_lock[DB_LATENCY_BUCKETS - 1])))
 			panic("pthread_spin_lock");
-		char* max_row = pfcq_mstring("MAX, %ju\n", db_lats.lats[DB_LATENCY_BUCKETS]);
-		if (unlikely(pthread_spin_unlock(&db_lats.lats_lock[DB_LATENCY_BUCKETS])))
+		char* max_row = pfcq_mstring("LAT,MAX,%ju\n", db_lats.lats[DB_LATENCY_BUCKETS - 1]);
+		if (unlikely(pthread_spin_unlock(&db_lats.lats_lock[DB_LATENCY_BUCKETS - 1])))
 			panic("pthread_spin_unlock");
 		lats = pfcq_cstring(lats, max_row);
 		pfcq_free(max_row);
@@ -321,19 +322,14 @@ out:
 void db_stats_latency_update(struct timespec _ctime)
 {
 	struct timespec time_now;
-	int64_t lat = 0;
-	int bucket = 0;
+	unsigned bucket = 0;
 
 	if (unlikely(clock_gettime(CLOCK_REALTIME, &time_now)))
 		panic("clock_gettime");
 
-#define DB_LOG2(X) ((unsigned)(CHAR_BIT * sizeof(unsigned long long) - __builtin_clzll((X)) - 1))
-	lat = __pfcq_timespec_diff_ns(_ctime, time_now) / 1000;
-	bucket = DB_LOG2(lat) - DB_LATENCY_FIRST;
-	if (bucket < 0)
-		bucket = 0;
-	else if (bucket > DB_LATENCY_BUCKETS)
-		bucket = DB_LATENCY_BUCKETS;
+	bucket = DB_LOG2(__pfcq_timespec_diff_ns(_ctime, time_now) / 1000);
+	if (bucket >= DB_LATENCY_BUCKETS)
+		bucket = DB_LATENCY_BUCKETS - 1;
 
 	if (unlikely(pthread_spin_lock(&db_lats.lats_lock[bucket])))
 		panic("pthread_spin_lock");
@@ -347,7 +343,7 @@ void db_stats_latency_update(struct timespec _ctime)
 void db_stats_init(db_local_context_t* _ctx)
 {
 	pfcq_zero(&db_lats, sizeof(db_latency_stats_t));
-	for (size_t i = 0; i <= DB_LATENCY_BUCKETS; i++)
+	for (size_t i = 0; i < DB_LATENCY_BUCKETS; i++)
 		if (unlikely(pthread_spin_init(&db_lats.lats_lock[i], PTHREAD_PROCESS_PRIVATE)))
 			panic("pthread_spin_init");
 
@@ -391,7 +387,7 @@ void db_stats_done(void)
 {
 	if (mhd_daemon)
 		MHD_stop_daemon(mhd_daemon);
-	for (size_t i = 0; i <= DB_LATENCY_BUCKETS; i++)
+	for (size_t i = 0; i < DB_LATENCY_BUCKETS; i++)
 		if (unlikely(pthread_spin_destroy(&db_lats.lats_lock[i])))
 			panic("pthread_spin_destroy");
 	ctx = NULL;

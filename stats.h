@@ -25,15 +25,12 @@
 
 #include <dnsbalancer.h>
 
-#define DB_LATENCY_FIRST	7
-#define DB_LATENCY_LAST		23
-#define DB_LATENCY_BUCKETS	(DB_LATENCY_LAST - DB_LATENCY_FIRST + 1)
+#define DB_LATENCY_BUCKETS	25
 
 typedef struct db_latency_stats
 {
-	// 2^7...2^23,MAX us, 18 cells
-	uint64_t lats[DB_LATENCY_BUCKETS + 1];
-	pthread_spinlock_t lats_lock[DB_LATENCY_BUCKETS + 1];
+	uint64_t lats[DB_LATENCY_BUCKETS];
+	pthread_spinlock_t lats_lock[DB_LATENCY_BUCKETS];
 } db_latency_stats_t;
 
 void db_stats_frontend_in(db_frontend_t* _frontend, uint64_t _delta_bytes) __attribute__((nonnull(1)));

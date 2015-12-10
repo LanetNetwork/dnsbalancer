@@ -23,6 +23,8 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
+#define DB_LOG2(X) ((unsigned)(CHAR_BIT * sizeof(unsigned long long) - __builtin_clzll((X)) - 1))
+
 uint64_t db_netaddr_addr_crc64(sa_family_t _family, pfcq_net_address_t _netaddr);
 uint64_t db_netaddr_port_crc64(sa_family_t _family, pfcq_net_address_t _netaddr);
 ssize_t db_find_alive_forwarder(db_frontend_t* _frontend, pfcq_fprng_context_t* _fprng_context, pfcq_net_address_t _netaddr);
