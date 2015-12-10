@@ -27,7 +27,7 @@
 void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl* _acl)
 {
 #ifndef DB_INIPARSER4
-	char* acl_item = pfcq_strdup(_acl_name);
+	char* acl_name = pfcq_strdup(_acl_name);
 #endif /* DB_INIPARSER4 */
 
 #ifdef DB_INIPARSER4
