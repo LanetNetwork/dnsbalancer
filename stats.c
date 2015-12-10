@@ -287,7 +287,7 @@ static int db_answer_to_connection(void* _data,
 			char* row = NULL;
 			if (unlikely(pthread_spin_lock(&db_lats.lats_lock[i])))
 				panic("pthread_spin_lock");
-			row = pfcq_mstring("LAT,%lu,%ju\n", 1UL << i, db_lats.lats[i]);
+			row = pfcq_mstring("LAT,%lu,%lu\n", 1UL << i, db_lats.lats[i]);
 			if (unlikely(pthread_spin_unlock(&db_lats.lats_lock[i])))
 				panic("pthread_spin_unlock");
 			lats = pfcq_cstring(lats, row);
@@ -295,7 +295,7 @@ static int db_answer_to_connection(void* _data,
 		}
 		if (unlikely(pthread_spin_lock(&db_lats.lats_lock[DB_LATENCY_BUCKETS - 1])))
 			panic("pthread_spin_lock");
-		char* max_row = pfcq_mstring("LAT,MAX,%ju\n", db_lats.lats[DB_LATENCY_BUCKETS - 1]);
+		char* max_row = pfcq_mstring("LAT,MAX,%lu\n", db_lats.lats[DB_LATENCY_BUCKETS - 1]);
 		if (unlikely(pthread_spin_unlock(&db_lats.lats_lock[DB_LATENCY_BUCKETS - 1])))
 			panic("pthread_spin_unlock");
 		lats = pfcq_cstring(lats, max_row);
