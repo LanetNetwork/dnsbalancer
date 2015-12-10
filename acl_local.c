@@ -259,7 +259,7 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 #endif /* DB_INIPARSER4 */
 
 #ifndef DB_INIPARSER4
-	pfcq_free(acl_item);
+	pfcq_free(acl_name);
 #endif /* DB_INIPARSER4 */
 
 	return;
