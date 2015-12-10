@@ -26,7 +26,15 @@
 
 void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl* _acl)
 {
+#ifndef DB_INIPARSER4
+	char* acl_item = pfcq_strdup(_acl_name);
+#endif /* DB_INIPARSER4 */
+
+#ifdef DB_INIPARSER4
 	int acl_items_count = iniparser_getsecnkeys(_config, _acl_name);
+#else /* DB_INIPARSER4 */
+	int acl_items_count = iniparser_getsecnkeys(_config, acl_name);
+#endif /* DB_INIPARSER4 */
 	if (unlikely(acl_items_count < 1))
 	{
 		inform("No ACL %s found in config file\n", _acl_name);
@@ -38,7 +46,7 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 	const char** acl_items = pfcq_alloc(acl_items_count * sizeof(char*));
 	iniparser_getseckeys(_config, _acl_name, acl_items);
 #else /* DB_INIPARSER4 */
-	char** acl_items = iniparser_getseckeys(_config, _acl_name);
+	char** acl_items = iniparser_getseckeys(_config, acl_name);
 #endif /* DB_INIPARSER4 */
 	TAILQ_INIT(_acl);
 	for (int i = 0; i < acl_items_count; i++)
@@ -248,6 +256,10 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 	pfcq_free(acl_items);
 #else /* DB_INIPARSER4 */
 	free(acl_items);
+#endif /* DB_INIPARSER4 */
+
+#ifndef DB_INIPARSER4
+	pfcq_free(acl_item);
 #endif /* DB_INIPARSER4 */
 
 	return;
