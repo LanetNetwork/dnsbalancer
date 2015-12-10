@@ -209,7 +209,8 @@ void* db_worker(void* _data)
 									uint16_t new_id = db_insert_request(&data->g_ctx->db_requests, new_request);
 
 									// Substitute new ID to client DNS query
-									*(uint16_t*)server_buffer = htons(new_id);
+									uint16_t id_nbo = htons(new_id);
+									memcpy(server_buffer, &id_nbo, sizeof(uint16_t));
 
 									// Forward new request to forwarder
 									ssize_t send_res = send(forwarders[forwarder_index], server_buffer, query_size, 0);
@@ -307,7 +308,8 @@ void* db_worker(void* _data)
 							if (likely(found_request))
 							{
 								// Substitute original request ID to response
-								*(uint16_t*)backend_buffer = htons(found_request->original_id);
+								uint16_t id_nbo = htons(found_request->original_id);
+								memcpy(backend_buffer, &id_nbo, sizeof(uint16_t));
 
 								ldns_pkt_rcode backend_answer_packet_rcode = ldns_pkt_get_rcode(backend_answer_packet);
 								db_stats_forwarder_out(data->backend.forwarders[found_request->forwarder_index], answer_size, backend_answer_packet_rcode);
