@@ -191,10 +191,10 @@ Currently valid action values are:
 
 * `allow` accepts query;
 * `deny` silently drops query;
-* `nxdomain` sends NXDOMAIN back to client.
+* `nxdomain` sends NXDOMAIN back to client;
+* `set_a` sets specific IPv4 address (via `actionparameters` field) for immediate response.
 
-ACL is examined step-by-step. Default ACL policy is to accept all queries. Also ACLs may be used to
-mangle queries in future, extending set of actions that may be performed against DNS packets.
+ACL is examined step-by-step. Default ACL policy is to accept all queries.
 
 Finally, one may examine ACL stats via following URL:
 

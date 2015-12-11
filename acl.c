@@ -48,7 +48,8 @@ void db_acl_free_list_item(struct db_list_item* _item)
 	return;
 }
 
-db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _address, db_request_data_t* _request_data, struct db_acl* _acl)
+db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _address, db_request_data_t* _request_data, struct db_acl* _acl,
+	void** _acl_data, size_t* _acl_data_length)
 {
 	db_acl_action_t ret = DB_ACL_ACTION_ALLOW;
 
@@ -121,6 +122,16 @@ found:
 			if (matcher_matched)
 			{
 				ret = current_acl_item->action;
+				switch (current_acl_item->action)
+				{
+					case DB_ACL_ACTION_SET_A:
+						*_acl_data_length = sizeof(current_acl_item->action_parameters.set_a_address.address4);
+						*_acl_data = pfcq_alloc(*_acl_data_length);
+						memcpy(*_acl_data, &current_acl_item->action_parameters.set_a_address.address4, *_acl_data_length);
+						break;
+					default:
+						break;
+				}
 				if (unlikely(pthread_spin_lock(&current_acl_item->hits_lock)))
 					panic("pthread_spin_lock");
 				current_acl_item->hits++;

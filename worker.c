@@ -199,7 +199,9 @@ void* db_worker(void* _data)
 							db_request_data_t request_data = db_make_request_data(client_query_packet, forwarders[forwarder_index]);
 
 							// Check query against ACL
-							switch (db_check_query_acl(data->layer3, &address, &request_data, &data->acl))
+							void* acl_data = NULL;
+							size_t acl_data_length = 0;
+							switch (db_check_query_acl(data->layer3, &address, &request_data, &data->acl, &acl_data, &acl_data_length))
 							{
 								case DB_ACL_ACTION_ALLOW:
 								{
@@ -264,8 +266,73 @@ void* db_worker(void* _data)
 									break;
 								}
 								case DB_ACL_ACTION_SET_A:
-									// TODO: return specific A record
+								{
+									// Create A response packet
+									ldns_pkt* a_packet = ldns_pkt_new();
+
+									ldns_pkt_set_id(a_packet, ldns_pkt_id(client_query_packet));
+									ldns_pkt_set_qr(a_packet, 1);
+									ldns_pkt_set_rd(a_packet, 1);
+									ldns_pkt_set_ra(a_packet, 1);
+									ldns_pkt_set_opcode(a_packet, LDNS_PACKET_QUERY);
+									ldns_pkt_set_rcode(a_packet, LDNS_RCODE_NOERROR);
+
+									// Dup queries into A response
+									ldns_rr_list* q_rr_list = ldns_rr_list_clone(client_queries);
+									ldns_pkt_push_rr_list(a_packet, LDNS_SECTION_QUESTION, q_rr_list);
+
+									// Put answer into A response
+									ldns_rr_list* a_rr_list = ldns_rr_list_new();
+									ldns_rr* a_rr = NULL;
+
+									// Get request FQDN
+									ldns_rdf* a_fqdn_rdf = ldns_rr_owner(ldns_rr_list_rr(ldns_pkt_question(client_query_packet), 0));
+									ldns_dname2canonical(a_fqdn_rdf);
+									char* a_fqdn = ldns_rdf2str(a_fqdn_rdf);
+
+									// Get substitution IP from ACL
+									char a_str[INET_ADDRSTRLEN];
+									pfcq_zero(a_str, INET_ADDRSTRLEN);
+									inet_ntop(AF_INET, acl_data, a_str, INET_ADDRSTRLEN);
+
+									// Create response resource record
+									char* response_string = pfcq_mstring("%s %u IN A %s", a_fqdn, LDNS_DEFAULT_TTL, a_str);
+									ldns_rr_new_frm_str(&a_rr, response_string, 0, NULL, NULL);
+									pfcq_free(response_string);
+									free(a_fqdn);
+
+									// Put A RR to answer packet
+									ldns_rr_list_push_rr(a_rr_list, a_rr);
+									ldns_pkt_push_rr_list(a_packet, LDNS_SECTION_ANSWER, a_rr_list);
+
+									// Send A to client
+									uint8_t* a_buffer = NULL;
+									size_t a_buffer_size;
+									ldns_pkt2wire(&a_buffer, a_packet, &a_buffer_size);
+									switch (data->layer3)
+									{
+										case PF_INET:
+											sendto(server, a_buffer, a_buffer_size, 0,
+													(const struct sockaddr*)&address.address4, (socklen_t)sizeof(struct sockaddr_in));
+											break;
+										case PF_INET6:
+											sendto(server, a_buffer, a_buffer_size, 0,
+													(const struct sockaddr*)&address.address6, (socklen_t)sizeof(struct sockaddr_in6));
+											break;
+										default:
+											panic("socket domain");
+											break;
+									}
+
+									ldns_rr_list_free(a_rr_list);
+									ldns_rr_list_free(q_rr_list);
+									ldns_pkt_free(a_packet);
+									pfcq_zero(a_buffer, a_buffer_size);
+									free(a_buffer);
+									a_buffer = NULL;
+									pfcq_free(acl_data);
 									break;
+								}
 								default:
 									panic("Unknown ACL action occurred");
 									break;
