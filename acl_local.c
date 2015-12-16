@@ -215,11 +215,34 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 		for (int j = 0; j < list_items_count; j++)
 		{
 			const char* list_item = iniparser_getstring(_config, list_items[j], NULL);
+			char* list_item_i = pfcq_strdup(list_item);
+			char* list_item_p = list_item_i;
+
 			struct db_list_item* new_list_item = pfcq_alloc(sizeof(struct db_list_item));
 			new_list_item->s_name = pfcq_strdup(list_items[j]);
-			new_list_item->s_fqdn = pfcq_strdup(list_item);
+
+			// DNS RR type
+			char* list_item_type = strsep(&list_item_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+			if (strcmp(list_item_type, DB_CONFIG_ACL_RR_TYPE_ALL) == 0)
+				new_list_item->rr_type = DB_ACL_RR_TYPE_ALL;
+			else if (strcmp(list_item_type, DB_CONFIG_ACL_RR_TYPE_ANY) == 0)
+				new_list_item->rr_type = DB_ACL_RR_TYPE_ANY;
+			else
+			{
+				inform("ACL: %s, invalid RR type specified in config file\n", _acl_name);
+				pfcq_free(list_item_p);
+				db_acl_free_list_item(new_list_item);
+				continue;
+			}
+
+			// DNS request FQDN
+			char* list_item_fqdn = strsep(&list_item_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+			new_list_item->s_fqdn = pfcq_strdup(list_item_fqdn);
 			new_list_item->s_fqdn_length = strlen(new_list_item->s_fqdn);
 			new_list_item->s_fqdn_hash = crc64speed(0, (uint8_t*)new_list_item->s_fqdn, new_list_item->s_fqdn_length);
+
+			pfcq_free(list_item_p);
+
 			switch (new_acl_item->matcher)
 			{
 				case DB_ACL_MATCHER_STRICT:

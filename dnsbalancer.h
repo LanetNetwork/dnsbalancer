@@ -62,6 +62,8 @@
 #define DB_CONFIG_ACL_MATCHER_STRICT		"strict"
 #define DB_CONFIG_ACL_MATCHER_SUBDOMAIN		"subdomain"
 #define DB_CONFIG_ACL_MATCHER_REGEX			"regex"
+#define DB_CONFIG_ACL_RR_TYPE_ALL			"all"
+#define DB_CONFIG_ACL_RR_TYPE_ANY			"any"
 #define DB_CONFIG_ACL_ACTION_ALLOW			"allow"
 #define DB_CONFIG_ACL_ACTION_DENY			"deny"
 #define DB_CONFIG_ACL_ACTION_NXDOMAIN		"nxdomain"

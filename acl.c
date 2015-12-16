@@ -82,13 +82,27 @@ db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _add
 		if (!address_matched)
 			continue;
 
-		// Match FQDN
-		// TODO: ACL list items may contain not only FQDN
+		// Match request
 		uint64_t fqdn_hash = crc64speed(0, (uint8_t*)_request_data->fqdn, strlen(_request_data->fqdn));
 		unsigned short int matcher_matched = 0;
 		struct db_list_item* current_list_item = NULL;
 		TAILQ_FOREACH(current_list_item, &current_acl_item->list, tailq)
 		{
+			// Match RR type
+			switch (current_list_item->rr_type)
+			{
+				case DB_ACL_RR_TYPE_ALL:
+					// Match everything
+					break;
+				case DB_ACL_RR_TYPE_ANY:
+					if (_request_data->rr_type != LDNS_RR_TYPE_ANY)
+						continue;
+					break;
+				default:
+					break;
+			}
+
+			// Match FQDN
 			switch (current_acl_item->matcher)
 			{
 				case DB_ACL_MATCHER_STRICT:

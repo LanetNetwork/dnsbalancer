@@ -24,7 +24,7 @@ acl=local/acl_1
 allow_all=ipv6/::/0/regex/list_all/allow/null
 
 [list_all]
-0=^.*$
+0=all/^.*$
 
 [be_dns]
 mode=rr

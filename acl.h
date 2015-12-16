@@ -42,6 +42,12 @@ typedef enum db_acl_matcher
 	DB_ACL_MATCHER_REGEX
 } db_acl_matcher_t;
 
+typedef enum db_acl_rr_type
+{
+	DB_ACL_RR_TYPE_ALL,
+	DB_ACL_RR_TYPE_ANY
+} db_acl_rr_type_t;
+
 typedef enum db_acl_action
 {
 	DB_ACL_ACTION_ALLOW,
@@ -59,6 +65,7 @@ struct db_list_item
 {
 	TAILQ_ENTRY(db_list_item) tailq;
 	char* s_name;
+	db_acl_rr_type_t rr_type;
 	char* s_fqdn;
 	size_t s_fqdn_length;
 	uint64_t s_fqdn_hash;

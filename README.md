@@ -71,7 +71,7 @@ acl=local/acl_1
 allow_all=ipv4/0.0.0.0/0/regex/list_all/allow/null
 
 [list_all]
-0=^.*$
+0=all/^.*$
 
 [be_dns]
 mode=rr
@@ -183,7 +183,7 @@ network mask is specified as decimal prefix like /0 or /24);
 * `matcher` is one of the following FQDN matcher: `strict` that matches the whole FQDN strictly (fastest one),
 `subdomain` that matches FQDN with all its subdomains and `regex` that matches FQDN against specified regex
 (slowest one);
-* `listname` is the name of FQDNs list;
+* `listname` is the name of DNS requests list;
 * `action` is, naturally, an action performed against query in question (see below);
 * `actionparameters` contains parameters to some actions (see below) or `null`;
 
@@ -195,6 +195,23 @@ Currently valid action values are:
 * `set_a` sets specific IPv4 address (via `actionparameters` field) for immediate response.
 
 ACL is examined step-by-step. Default ACL policy is to accept all queries.
+
+DNS requests list has the following syntax:
+
+`some_comment=rr_type/fqdn`
+
+* `some_comment` is item custom name;
+* `rr_type` is DNS RR type or `all` to match all types; supported values: `all`, `any`;
+* `fqdn` is FQDN or regex.
+
+Example:
+
+```ini
+[list_block_any]
+0=any/^.*$
+```
+
+This will block all IN ANY requests.
 
 Finally, one may examine ACL stats via following URL:
 
