@@ -56,6 +56,7 @@ db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _add
 	struct db_acl_item* current_acl_item = NULL;
 	TAILQ_FOREACH(current_acl_item, _acl, tailq)
 	{
+		// Match IP address
 		unsigned short int address_matched = 0;
 		struct in6_addr anded6;
 		switch (_layer3)
@@ -77,69 +78,73 @@ db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _add
 				panic("socket domain");
 				break;
 		}
-		if (address_matched)
+
+		if (!address_matched)
+			continue;
+
+		// Match FQDN
+		// TODO: ACL list items may contain not only FQDN
+		uint64_t fqdn_hash = crc64speed(0, (uint8_t*)_request_data->fqdn, strlen(_request_data->fqdn));
+		unsigned short int matcher_matched = 0;
+		struct db_list_item* current_list_item = NULL;
+		TAILQ_FOREACH(current_list_item, &current_acl_item->list, tailq)
 		{
-			uint64_t fqdn_hash = crc64speed(0, (uint8_t*)_request_data->fqdn, strlen(_request_data->fqdn));
-			unsigned short int matcher_matched = 0;
-			struct db_list_item* current_list_item = NULL;
-			TAILQ_FOREACH(current_list_item, &current_acl_item->list, tailq)
+			switch (current_acl_item->matcher)
 			{
-				switch (current_acl_item->matcher)
-				{
-					case DB_ACL_MATCHER_STRICT:
-						if (fqdn_hash == current_list_item->s_value_hash &&
-								likely(strncmp(_request_data->fqdn, current_list_item->s_value, current_list_item->s_value_length) == 0))
-						{
-							matcher_matched = 1;
-							goto found;
-						}
-						break;
-					case DB_ACL_MATCHER_SUBDOMAIN:
+				case DB_ACL_MATCHER_STRICT:
+					if (fqdn_hash == current_list_item->s_value_hash &&
+							likely(strncmp(_request_data->fqdn, current_list_item->s_value, current_list_item->s_value_length) == 0))
 					{
-						char* pos = strstr(_request_data->fqdn, current_list_item->s_value);
-						size_t fqdn_len = strlen(_request_data->fqdn);
-						size_t list_item_len = strlen(current_list_item->s_value);
-						if (pos && (size_t)(pos - _request_data->fqdn) == fqdn_len - list_item_len)
-						{
-							matcher_matched = 1;
-							goto found;
-						}
-						break;
+						matcher_matched = 1;
+						goto found;
 					}
-					case DB_ACL_MATCHER_REGEX:
-						if (regexec(&current_list_item->regex, _request_data->fqdn, 0, NULL, 0) == REG_NOERROR)
-						{
-							matcher_matched = 1;
-							goto found;
-						}
-						break;
-					default:
-						panic("Unknown matcher");
-						break;
-				}
-			}
-found:
-			if (matcher_matched)
-			{
-				ret = current_acl_item->action;
-				switch (current_acl_item->action)
+					break;
+				case DB_ACL_MATCHER_SUBDOMAIN:
 				{
-					case DB_ACL_ACTION_SET_A:
-						*_acl_data_length = sizeof(current_acl_item->action_parameters.set_a_address.address4);
-						*_acl_data = pfcq_alloc(*_acl_data_length);
-						memcpy(*_acl_data, &current_acl_item->action_parameters.set_a_address.address4, *_acl_data_length);
-						break;
-					default:
-						break;
+					char* pos = strstr(_request_data->fqdn, current_list_item->s_value);
+					size_t fqdn_len = strlen(_request_data->fqdn);
+					size_t list_item_len = strlen(current_list_item->s_value);
+					if (pos && (size_t)(pos - _request_data->fqdn) == fqdn_len - list_item_len)
+					{
+						matcher_matched = 1;
+						goto found;
+					}
+					break;
 				}
-				if (unlikely(pthread_spin_lock(&current_acl_item->hits_lock)))
-					panic("pthread_spin_lock");
-				current_acl_item->hits++;
-				if (unlikely(pthread_spin_unlock(&current_acl_item->hits_lock)))
-					panic("pthread_spin_unlock");
-				break;
+				case DB_ACL_MATCHER_REGEX:
+					if (regexec(&current_list_item->regex, _request_data->fqdn, 0, NULL, 0) == REG_NOERROR)
+					{
+						matcher_matched = 1;
+						goto found;
+					}
+					break;
+				default:
+					panic("Unknown matcher");
+					break;
 			}
 		}
+found:
+		if (!matcher_matched)
+			continue;
+
+		// Set action
+		ret = current_acl_item->action;
+		switch (current_acl_item->action)
+		{
+			case DB_ACL_ACTION_SET_A:
+				*_acl_data_length = sizeof(current_acl_item->action_parameters.set_a_address.address4);
+				*_acl_data = pfcq_alloc(*_acl_data_length);
+				memcpy(*_acl_data, &current_acl_item->action_parameters.set_a_address.address4, *_acl_data_length);
+				break;
+			default:
+				break;
+		}
+		if (unlikely(pthread_spin_lock(&current_acl_item->hits_lock)))
+			panic("pthread_spin_lock");
+		current_acl_item->hits++;
+		if (unlikely(pthread_spin_unlock(&current_acl_item->hits_lock)))
+			panic("pthread_spin_unlock");
+		break;
 	}
 
 	return ret;
