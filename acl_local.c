@@ -217,9 +217,9 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 			const char* list_item = iniparser_getstring(_config, list_items[j], NULL);
 			struct db_list_item* new_list_item = pfcq_alloc(sizeof(struct db_list_item));
 			new_list_item->s_name = pfcq_strdup(list_items[j]);
-			new_list_item->s_value = pfcq_strdup(list_item);
-			new_list_item->s_value_length = strlen(new_list_item->s_value);
-			new_list_item->s_value_hash = crc64speed(0, (uint8_t*)new_list_item->s_value, new_list_item->s_value_length);
+			new_list_item->s_fqdn = pfcq_strdup(list_item);
+			new_list_item->s_fqdn_length = strlen(new_list_item->s_fqdn);
+			new_list_item->s_fqdn_hash = crc64speed(0, (uint8_t*)new_list_item->s_fqdn, new_list_item->s_fqdn_length);
 			switch (new_acl_item->matcher)
 			{
 				case DB_ACL_MATCHER_STRICT:
@@ -227,7 +227,7 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 				case DB_ACL_MATCHER_SUBDOMAIN:
 					break;
 				case DB_ACL_MATCHER_REGEX:
-					if (unlikely(regcomp(&new_list_item->regex, new_list_item->s_value, REG_EXTENDED | REG_NOSUB)))
+					if (unlikely(regcomp(&new_list_item->regex, new_list_item->s_fqdn, REG_EXTENDED | REG_NOSUB)))
 					{
 						inform("List: %s, unable to compile regex specified in config file\n", acl_item_list);
 						db_acl_free_list_item(new_list_item);

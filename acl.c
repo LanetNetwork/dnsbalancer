@@ -40,7 +40,7 @@ void db_acl_free_item(struct db_acl_item* _item)
 void db_acl_free_list_item(struct db_list_item* _item)
 {
 	pfcq_free(_item->s_name);
-	pfcq_free(_item->s_value);
+	pfcq_free(_item->s_fqdn);
 	if (likely(_item->regex_compiled))
 		regfree(&_item->regex);
 	pfcq_free(_item);
@@ -92,8 +92,8 @@ db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _add
 			switch (current_acl_item->matcher)
 			{
 				case DB_ACL_MATCHER_STRICT:
-					if (fqdn_hash == current_list_item->s_value_hash &&
-							likely(strncmp(_request_data->fqdn, current_list_item->s_value, current_list_item->s_value_length) == 0))
+					if (fqdn_hash == current_list_item->s_fqdn_hash &&
+							likely(strncmp(_request_data->fqdn, current_list_item->s_fqdn, current_list_item->s_fqdn_length) == 0))
 					{
 						matcher_matched = 1;
 						goto found;
@@ -101,9 +101,9 @@ db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _add
 					break;
 				case DB_ACL_MATCHER_SUBDOMAIN:
 				{
-					char* pos = strstr(_request_data->fqdn, current_list_item->s_value);
+					char* pos = strstr(_request_data->fqdn, current_list_item->s_fqdn);
 					size_t fqdn_len = strlen(_request_data->fqdn);
-					size_t list_item_len = strlen(current_list_item->s_value);
+					size_t list_item_len = strlen(current_list_item->s_fqdn);
 					if (pos && (size_t)(pos - _request_data->fqdn) == fqdn_len - list_item_len)
 					{
 						matcher_matched = 1;

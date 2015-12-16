@@ -59,9 +59,9 @@ struct db_list_item
 {
 	TAILQ_ENTRY(db_list_item) tailq;
 	char* s_name;
-	char* s_value;
-	size_t s_value_length;
-	uint64_t s_value_hash;
+	char* s_fqdn;
+	size_t s_fqdn_length;
+	uint64_t s_fqdn_hash;
 	unsigned short int regex_compiled;
 	regex_t regex;
 };
