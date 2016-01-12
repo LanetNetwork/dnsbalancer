@@ -146,9 +146,9 @@ found:
 		switch (current_acl_item->action)
 		{
 			case DB_ACL_ACTION_SET_A:
-				*_acl_data_length = sizeof(current_acl_item->action_parameters.set_a_address.address4);
+				*_acl_data_length = sizeof(current_acl_item->action_parameters.set_a);
 				*_acl_data = pfcq_alloc(*_acl_data_length);
-				memcpy(*_acl_data, &current_acl_item->action_parameters.set_a_address.address4, *_acl_data_length);
+				memcpy(*_acl_data, &current_acl_item->action_parameters.set_a, *_acl_data_length);
 				break;
 			default:
 				break;

@@ -182,13 +182,28 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 		else if (strcmp(acl_item_action, DB_CONFIG_ACL_ACTION_SET_A) == 0)
 		{
 			new_acl_item->action = DB_ACL_ACTION_SET_A;
-			if (unlikely(inet_pton(PF_INET, acl_item_action_parameters, &new_acl_item->action_parameters.set_a_address.address4) == -1))
+			char* acl_item_action_parameters_i = pfcq_strdup(acl_item_action_parameters);
+			char* acl_item_action_parameters_p = acl_item_action_parameters_i;
+			char* set_a_address = strsep(&acl_item_action_parameters_i, DB_CONFIG_LIST_SEPARATOR);
+			if (unlikely(inet_pton(PF_INET, set_a_address, &new_acl_item->action_parameters.set_a.address4) == -1))
 			{
 				inform("ACL: %s, unable to translate SET_A host specified in config file\n", _acl_name);
 				db_acl_free_item(new_acl_item);
 				pfcq_free(acl_item_expr_p);
+				pfcq_free(acl_item_action_parameters_p);
 				continue;
 			}
+			char* set_a_ttl = strsep(&acl_item_action_parameters_i, DB_CONFIG_LIST_SEPARATOR);
+			if (!pfcq_isnumber(set_a_ttl))
+			{
+				inform("ACL: %s, unable to translate SET_A TTL specified in config file\n", _acl_name);
+				db_acl_free_item(new_acl_item);
+				pfcq_free(acl_item_expr_p);
+				pfcq_free(acl_item_action_parameters_p);
+				continue;
+			}
+			new_acl_item->action_parameters.set_a.ttl = strtoll(set_a_ttl, NULL, 10);
+			pfcq_free(acl_item_action_parameters_p);
 		} else
 		{
 			inform("ACL: %s, invalid action specified in config file\n", _acl_name);

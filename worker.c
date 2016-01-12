@@ -291,12 +291,14 @@ void* db_worker(void* _data)
 									char* a_fqdn = ldns_rdf2str(a_fqdn_rdf);
 
 									// Get substitution IP from ACL
+									db_set_a_t* set_a_params = acl_data;
+
 									char a_str[INET_ADDRSTRLEN];
 									pfcq_zero(a_str, INET_ADDRSTRLEN);
-									inet_ntop(AF_INET, acl_data, a_str, INET_ADDRSTRLEN);
+									inet_ntop(AF_INET, &set_a_params->address4, a_str, INET_ADDRSTRLEN);
 
 									// Create response resource record
-									char* response_string = pfcq_mstring("%s %u IN A %s", a_fqdn, LDNS_DEFAULT_TTL, a_str);
+									char* response_string = pfcq_mstring("%s %u IN A %s", a_fqdn, set_a_params->ttl, a_str);
 									ldns_rr_new_frm_str(&a_rr, response_string, 0, NULL, NULL);
 									pfcq_free(response_string);
 									free(a_fqdn);

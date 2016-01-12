@@ -192,7 +192,8 @@ Currently valid action values are:
 * `allow` accepts query;
 * `deny` silently drops query;
 * `nxdomain` sends NXDOMAIN back to client;
-* `set_a` sets specific IPv4 address (via `actionparameters` field) for immediate response.
+* `set_a` sets specific IPv4 address and comma-separated TTL (via `actionparameters` field)
+for immediate response.
 
 ACL is examined step-by-step. Default ACL policy is to accept all queries.
 

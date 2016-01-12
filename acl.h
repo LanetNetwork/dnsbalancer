@@ -56,9 +56,15 @@ typedef enum db_acl_action
 	DB_ACL_ACTION_SET_A
 } db_acl_action_t;
 
+typedef struct db_set_a
+{
+	unsigned long address4;
+	uint32_t ttl;
+} db_set_a_t;
+
 typedef union db_acl_action_parameters
 {
-	pfcq_in_address_t set_a_address;
+	db_set_a_t set_a;
 } db_acl_action_parameters_t;
 
 struct db_list_item
