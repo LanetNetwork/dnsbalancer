@@ -1,0 +1,14 @@
+[Unit]
+Description=Daemon to balance UDP DNS requests over DNS servers
+After=network.target
+
+[Service]
+Type=forking
+PrivateTmp=true
+PIDFile=/run/dnsbalancer.pid
+ExecStart=/usr/bin/dnsbalancer --config=/etc/dnsbalancer/dnsbalancer.conf --pid-file=/run/dnsbalancer.pid --daemonize --syslog
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
