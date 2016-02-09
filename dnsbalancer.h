@@ -2,7 +2,7 @@
 
 /*
  * dnsbalancer - daemon to balance UDP DNS requests over DNS servers
- * Copyright (C) 2015 Lanet Network
+ * Copyright (C) 2015-2016 Lanet Network
  * Programmed by Oleksandr Natalenko <o.natalenko@lanet.ua>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -34,7 +34,7 @@
 
 #define APP_NAME							"dnsbalancer"
 #define APP_VERSION							"0.0.1"
-#define APP_YEAR							"2015"
+#define APP_YEAR							"2015-2016"
 #define APP_HOLDER							"Lanet Network"
 #define APP_PROGRAMMER						"Oleksandr Natalenko"
 #define APP_EMAIL							"o.natalenko@lanet.ua"

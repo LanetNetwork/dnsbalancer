@@ -2,7 +2,7 @@
 
 /*
  * dnsbalancer - daemon to balance UDP DNS requests over DNS servers
- * Copyright (C) 2015 Lanet Network
+ * Copyright (C) 2015-2016 Lanet Network
  * Programmed by Oleksandr Natalenko <o.natalenko@lanet.ua>
  *
  * This program is free software: you can redistribute it and/or modify
