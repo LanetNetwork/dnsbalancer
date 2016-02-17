@@ -39,6 +39,8 @@
 #define APP_PROGRAMMER						"Oleksandr Natalenko"
 #define APP_EMAIL							"o.natalenko@lanet.ua"
 
+#define DB_HASH_SEED						(0xda9d9374347ffd15)
+
 #define DB_CONFIG_REQUEST_TTL_KEY			"general:request_ttl"
 #define DB_CONFIG_GC_INTERVAL_KEY			"general:gc_interval"
 #define DB_CONFIG_WATCHDOG_INTERVAL_KEY		"general:watchdog_interval"

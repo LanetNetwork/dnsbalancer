@@ -20,7 +20,6 @@
 
 #include <bsd/sys/cdefs.h>
 #include <bsd/unistd.h>
-#include <crc64speed.h>
 #include <getopt.h>
 #include <global_context.h>
 #include <local_context.h>
@@ -55,8 +54,6 @@ static void sigall_handler(int _signo)
 
 int main(int argc, char** argv, char** envp)
 {
-	crc64speed_init();
-
 	db_global_context_t* g_ctx = NULL;
 	db_local_context_t* l_ctx = NULL;
 	int opts = 0;

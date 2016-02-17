@@ -18,10 +18,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <crc64speed.h>
+#include <dnsbalancer.h>
 #include <limits.h>
 #include <pthread.h>
 #include <request.h>
+#include <xxhash.h>
 
 db_request_data_t db_make_request_data(ldns_pkt* _packet, int _forwarder_socket)
 {
@@ -41,10 +42,10 @@ db_request_data_t db_make_request_data(ldns_pkt* _packet, int _forwarder_socket)
 	strncpy(ret.fqdn, owner_str, HOST_NAME_MAX);
 	free(owner_str);
 	ret.forwarder_socket = _forwarder_socket;
-	ret.hash = crc64speed(0, (uint8_t*)&ret.rr_type, sizeof(ldns_rr_type));
-	ret.hash = crc64speed(ret.hash, (uint8_t*)&ret.rr_class, sizeof(ldns_rr_class));
-	ret.hash = crc64speed(ret.hash, (uint8_t*)ret.fqdn, strlen(ret.fqdn));
-	ret.hash = crc64speed(ret.hash, (uint8_t*)&ret.forwarder_socket, sizeof(int));
+	ret.hash = XXH64((uint8_t*)&ret.rr_type, sizeof(ldns_rr_type), DB_HASH_SEED);
+	ret.hash = XXH64((uint8_t*)&ret.rr_class, sizeof(ldns_rr_class), ret.hash);
+	ret.hash = XXH64((uint8_t*)ret.fqdn, strlen(ret.fqdn), ret.hash);
+	ret.hash = XXH64((uint8_t*)&ret.forwarder_socket, sizeof(int), ret.hash);
 
 	return ret;
 }

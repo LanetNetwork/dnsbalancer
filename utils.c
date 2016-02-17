@@ -18,13 +18,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <crc64speed.h>
 #include <dnsbalancer.h>
 #include <utils.h>
+#include <xxhash.h>
 
-uint64_t db_netaddr_addr_crc64(sa_family_t _family, pfcq_net_address_t _netaddr)
+static uint64_t db_netaddr_addr_hash64(sa_family_t _family, pfcq_net_address_t _netaddr)
 {
-	uint64_t ret = 0;
+	uint64_t ret = DB_HASH_SEED;
 	unsigned long s_addr = 0;
 	const uint8_t* s_addr_buf = NULL;
 	const uint8_t* s6_addr_buf = NULL;
@@ -36,7 +36,7 @@ uint64_t db_netaddr_addr_crc64(sa_family_t _family, pfcq_net_address_t _netaddr)
 		case PF_INET:
 			s_addr = ntohl(_netaddr.address4.sin_addr.s_addr);
 			s_addr_buf = (const uint8_t*)&s_addr;
-			ret = crc64speed(0, s_addr_buf, sizeof(unsigned long));
+			ret = XXH64(s_addr_buf, sizeof(unsigned long), ret);
 			break;
 		case PF_INET6:
 			for (size_t i = 0; i < sizeof(_netaddr.address6.sin6_addr.s6_addr); i += sizeof(_netaddr.address6.sin6_addr.s6_addr) / sizeof(uint32_t))
@@ -44,7 +44,7 @@ uint64_t db_netaddr_addr_crc64(sa_family_t _family, pfcq_net_address_t _netaddr)
 				s6_addr_piece = (uint32_t*)&_netaddr.address6.sin6_addr.s6_addr[i];
 				s6_addr_piece_h = ntohl(*s6_addr_piece);
 				s6_addr_buf = (const uint8_t*)&s6_addr_piece_h;
-				ret = crc64speed(ret, s6_addr_buf, sizeof(uint32_t));
+				ret = XXH64(s6_addr_buf, sizeof(uint32_t), ret);
 			}
 			break;
 		default:
@@ -55,9 +55,9 @@ uint64_t db_netaddr_addr_crc64(sa_family_t _family, pfcq_net_address_t _netaddr)
 	return ret;
 }
 
-uint64_t db_netaddr_port_crc64(sa_family_t _family, pfcq_net_address_t _netaddr)
+static uint64_t db_netaddr_port_hash64(sa_family_t _family, pfcq_net_address_t _netaddr)
 {
-	uint64_t ret = 0;
+	uint64_t ret = DB_HASH_SEED;
 	unsigned short u_port = 0;
 	const uint8_t* u_port_buf = NULL;
 
@@ -66,12 +66,12 @@ uint64_t db_netaddr_port_crc64(sa_family_t _family, pfcq_net_address_t _netaddr)
 		case PF_INET:
 			u_port = ntohs(_netaddr.address4.sin_port);
 			u_port_buf = (const uint8_t*)&u_port;
-			ret = crc64speed(0, u_port_buf, sizeof(unsigned short));
+			ret = XXH64(u_port_buf, sizeof(unsigned short), ret);
 			break;
 		case PF_INET6:
 			u_port = ntohs(_netaddr.address6.sin6_port);
 			u_port_buf = (const uint8_t*)&u_port;
-			ret = crc64speed(0, u_port_buf, sizeof(unsigned short));
+			ret = XXH64(u_port_buf, sizeof(unsigned short), ret);
 			break;
 		default:
 			panic("socket domain");
@@ -117,8 +117,8 @@ ssize_t db_find_alive_forwarder(db_frontend_t* _frontend, pfcq_fprng_context_t* 
 	uint64_t least_pkts = UINT64_MAX;
 	uint64_t least_traffic = UINT64_MAX;
 	uint64_t xor = 0;
-	uint64_t crc1 = 0;
-	uint64_t crc2 = 0;
+	uint64_t hash1 = 0;
+	uint64_t hash2 = 0;
 	double probability = 0;
 	double normalized_weight = 0;
 
@@ -166,17 +166,17 @@ ssize_t db_find_alive_forwarder(db_frontend_t* _frontend, pfcq_fprng_context_t* 
 					}
 			break;
 		case DB_BE_MODE_HASH_L3_L4:
-			crc1 = db_netaddr_addr_crc64(_frontend->layer3, _netaddr);
-			crc2 = db_netaddr_port_crc64(_frontend->layer3, _netaddr);
-			xor = crc1 ^ crc2;
+			hash1 = db_netaddr_addr_hash64(_frontend->layer3, _netaddr);
+			hash2 = db_netaddr_port_hash64(_frontend->layer3, _netaddr);
+			xor = hash1 ^ hash2;
 			ret = __db_find_alive_forwarder_by_offset(xor, &_frontend->backend);
 			break;
 		case DB_BE_MODE_HASH_L3:
-			xor = db_netaddr_addr_crc64(_frontend->layer3, _netaddr);
+			xor = db_netaddr_addr_hash64(_frontend->layer3, _netaddr);
 			ret = __db_find_alive_forwarder_by_offset(xor, &_frontend->backend);
 			break;
 		case DB_BE_MODE_HASH_L4:
-			xor = db_netaddr_port_crc64(_frontend->layer3, _netaddr);
+			xor = db_netaddr_port_hash64(_frontend->layer3, _netaddr);
 			ret = __db_find_alive_forwarder_by_offset(xor, &_frontend->backend);
 			break;
 		default:

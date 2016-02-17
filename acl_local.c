@@ -19,10 +19,10 @@
  */
 
 #include <acl_local.h>
-#include <crc64speed.h>
 #include <dnsbalancer.h>
 #include <pfcq.h>
 #include <pthread.h>
+#include <xxhash.h>
 
 void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl* _acl)
 {
@@ -254,7 +254,7 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 			char* list_item_fqdn = strsep(&list_item_i, DB_CONFIG_PARAMETERS_SEPARATOR);
 			new_list_item->s_fqdn = pfcq_strdup(list_item_fqdn);
 			new_list_item->s_fqdn_length = strlen(new_list_item->s_fqdn);
-			new_list_item->s_fqdn_hash = crc64speed(0, (uint8_t*)new_list_item->s_fqdn, new_list_item->s_fqdn_length);
+			new_list_item->s_fqdn_hash = XXH64((uint8_t*)new_list_item->s_fqdn, new_list_item->s_fqdn_length, DB_HASH_SEED);
 
 			pfcq_free(list_item_p);
 

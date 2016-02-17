@@ -19,8 +19,9 @@
  */
 
 #include <acl.h>
-#include <crc64speed.h>
+#include <dnsbalancer.h>
 #include <pthread.h>
+#include <xxhash.h>
 
 void db_acl_free_item(struct db_acl_item* _item)
 {
@@ -83,7 +84,7 @@ db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _add
 			continue;
 
 		// Match request
-		uint64_t fqdn_hash = crc64speed(0, (uint8_t*)_request_data->fqdn, strlen(_request_data->fqdn));
+		uint64_t fqdn_hash = XXH64((uint8_t*)_request_data->fqdn, strlen(_request_data->fqdn), DB_HASH_SEED);
 		unsigned short int matcher_matched = 0;
 		struct db_list_item* current_list_item = NULL;
 		TAILQ_FOREACH(current_list_item, &current_acl_item->list, tailq)

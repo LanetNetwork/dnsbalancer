@@ -50,8 +50,6 @@ include_directories(.
 add_executable(dnsbalancer
 	acl.c
 	acl_local.c
-	crcspeed.c
-	crc64speed.c
 	dnsbalancer.c
 	global_context.c
 	local_context.c
@@ -59,7 +57,8 @@ add_executable(dnsbalancer
 	stats.c
 	utils.c
 	watchdog.c
-	worker.c)
+	worker.c
+	xxhash.c)
 
 target_link_libraries(dnsbalancer
 	pthread
