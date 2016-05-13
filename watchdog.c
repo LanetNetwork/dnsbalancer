@@ -73,7 +73,7 @@ int db_ping_forwarder(db_forwarder_t* _forwarder)
 	int db_ping_push_res = ldns_pkt_push_rr(db_ping_packet, LDNS_SECTION_QUESTION, db_ping_packet_rr);
 	if (unlikely(db_ping_push_res != LDNS_STATUS_OK && db_ping_push_res != LDNS_STATUS_EMPTY_LABEL))
 		goto packet_free;
-	if (unlikely(!ldns_pkt2wire(&db_ping_packet_buffer, db_ping_packet, &db_ping_packet_buffer_size) == LDNS_STATUS_OK))
+	if (unlikely(ldns_pkt2wire(&db_ping_packet_buffer, db_ping_packet, &db_ping_packet_buffer_size) != LDNS_STATUS_OK))
 		goto packet_free;
 	if (unlikely(send(db_ping_socket, db_ping_packet_buffer, db_ping_packet_buffer_size, 0) == -1))
 		goto ping_buffer_free;
