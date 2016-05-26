@@ -61,8 +61,25 @@ void* db_worker(void* _data)
 		panic("pthread_sigmask");
 
 	server = socket(data->layer3, SOCK_DGRAM, IPPROTO_UDP);
+	if (unlikely(server == -1))
+	{
+		fail("socket");
+		stop("Unable to create listener socket");
+	}
 	if (unlikely(setsockopt(server, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, (const void*)&option, sizeof(option)) == -1))
 		panic("setsockopt");
+	switch (data->layer3)
+	{
+		case PF_INET:
+			break;
+		case PF_INET6:
+			if (unlikely(setsockopt(server, IPPROTO_IPV6, IPV6_V6ONLY, (const void*)&option, sizeof(option)) == -1))
+				panic("setsockopt");
+			break;
+		default:
+			panic("socket domain");
+			break;
+	}
 	int bind_res = -1;
 	switch (data->layer3)
 	{
