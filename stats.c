@@ -190,16 +190,18 @@ static int db_answer_to_connection(void* _data,
 
 	int ret = MHD_NO;
 	struct MHD_Response* response = NULL;
+	char* body = NULL;
 
 	if (unlikely(strcmp(_method, MHD_HTTP_METHOD_GET) != 0))
 	{
 		ret = db_queue_code(_connection, _url, MHD_HTTP_METHOD_NOT_ALLOWED);
-		goto out;
+
+		goto error;
 	}
 
 	if (strcmp(_url, "/stats") == 0)
 	{
-		char* stats = pfcq_mstring("%s\n", "# name,FRONTEND,in_pkts,in_bytes,in_invalid_pkts,in_invalid_bytes,out_pkts,out_bytes,noerror,servfail,nxdomain,refused,other");
+		body = pfcq_mstring("%s\n", "# name,FRONTEND,in_pkts,in_bytes,in_invalid_pkts,in_invalid_bytes,out_pkts,out_bytes,noerror,servfail,nxdomain,refused,other");
 		for (size_t i = 0; i < ctx->frontends_count; i++)
 		{
 			db_frontend_stats_t fe_stats = db_stats_frontend(ctx->frontends[i]);
@@ -209,10 +211,10 @@ static int db_answer_to_connection(void* _data,
 					fe_stats.in_pkts_invalid, fe_stats.in_bytes_invalid,
 					fe_stats.out_pkts, fe_stats.out_bytes,
 					fe_stats.out_noerror, fe_stats.out_servfail, fe_stats.out_nxdomain, fe_stats.out_refused, fe_stats.out_other);
-			stats = pfcq_cstring(stats, row);
+			body = pfcq_cstring(body, row);
 			pfcq_free(row);
 		}
-		stats = pfcq_cstring(stats, "# name,FORWARDER,frontend_name,in_pkts,in_bytes,out_pkts,out_bytes,noerror,servfail,nxdomain,refused,other\n");
+		body = pfcq_cstring(body, "# name,FORWARDER,frontend_name,in_pkts,in_bytes,out_pkts,out_bytes,noerror,servfail,nxdomain,refused,other\n");
 		for (size_t i = 0; i < ctx->frontends_count; i++)
 			for (size_t j = 0; j < ctx->frontends[i]->backend.forwarders_count; j++)
 			{
@@ -223,34 +225,24 @@ static int db_answer_to_connection(void* _data,
 						frw_stats.in_pkts, frw_stats.in_bytes,
 						frw_stats.out_pkts, frw_stats.out_bytes,
 						frw_stats.out_noerror, frw_stats.out_servfail, frw_stats.out_nxdomain, frw_stats.out_refused, frw_stats.out_other);
-				stats = pfcq_cstring(stats, row);
+				body = pfcq_cstring(body, row);
 				pfcq_free(row);
 			}
 
-		response = MHD_create_response_from_buffer(strlen(stats), stats, MHD_RESPMEM_MUST_COPY);
-		if (unlikely(!response))
-		{
-			ret = db_queue_code(_connection, _url, MHD_HTTP_INTERNAL_SERVER_ERROR);
-		} else
-		{
-			ret = MHD_queue_response(_connection, MHD_HTTP_OK, response);
-			MHD_destroy_response(response);
-		}
-		pfcq_free(stats);
-		goto out;
+		goto noerror;
 	} else if (strcmp(_url, "/acls") == 0)
 	{
-		char* acls = pfcq_mstring("%s\n", "# ACLs");
+		body = pfcq_mstring("%s\n", "# ACLs");
 		for (size_t i = 0; i < ctx->frontends_count; i++)
 		{
 			char* row = NULL;
 			struct db_acl_item* current_acl_item = NULL;
 
 			row = pfcq_mstring("# %s,FRONTEND\n", ctx->frontends[i]->name);
-			acls = pfcq_cstring(acls, row);
+			body = pfcq_cstring(body, row);
 			pfcq_free(row);
 			row = pfcq_mstring("%s\n", "# layer3,address/netmask,regex,action,hits");
-			acls = pfcq_cstring(acls, row);
+			body = pfcq_cstring(body, row);
 			pfcq_free(row);
 
 			TAILQ_FOREACH(current_acl_item, &ctx->frontends[i]->acl, tailq)
@@ -264,25 +256,15 @@ static int db_answer_to_connection(void* _data,
 						current_acl_item->s_address, current_acl_item->s_netmask,
 						current_acl_item->s_list, current_acl_item->s_action,
 						hits);
-				acls = pfcq_cstring(acls, row);
+				body = pfcq_cstring(body, row);
 				pfcq_free(row);
 			}
 		}
 
-		response = MHD_create_response_from_buffer(strlen(acls), acls, MHD_RESPMEM_MUST_COPY);
-		if (unlikely(!response))
-		{
-			ret = db_queue_code(_connection, _url, MHD_HTTP_INTERNAL_SERVER_ERROR);
-		} else
-		{
-			ret = MHD_queue_response(_connection, MHD_HTTP_OK, response);
-			MHD_destroy_response(response);
-		}
-		pfcq_free(acls);
-		goto out;
+		goto noerror;
 	}  else if (strcmp(_url, "/lats") == 0)
 	{
-		char* lats = pfcq_mstring("%s\n", "# us, hits");
+		body = pfcq_mstring("%s\n", "# us, hits");
 		for (size_t i = 0; i < DB_LATENCY_BUCKETS - 1; i++)
 		{
 			char* row = NULL;
@@ -291,7 +273,7 @@ static int db_answer_to_connection(void* _data,
 			row = pfcq_mstring("LAT,%lu,%lu\n", 1UL << i, db_lats.lats[i]);
 			if (unlikely(pthread_spin_unlock(&db_lats.lats_lock[i])))
 				panic("pthread_spin_unlock");
-			lats = pfcq_cstring(lats, row);
+			body = pfcq_cstring(body, row);
 			pfcq_free(row);
 		}
 		if (unlikely(pthread_spin_lock(&db_lats.lats_lock[DB_LATENCY_BUCKETS - 1])))
@@ -299,39 +281,35 @@ static int db_answer_to_connection(void* _data,
 		char* max_row = pfcq_mstring("LAT,MAX,%lu\n", db_lats.lats[DB_LATENCY_BUCKETS - 1]);
 		if (unlikely(pthread_spin_unlock(&db_lats.lats_lock[DB_LATENCY_BUCKETS - 1])))
 			panic("pthread_spin_unlock");
-		lats = pfcq_cstring(lats, max_row);
+		body = pfcq_cstring(body, max_row);
 		pfcq_free(max_row);
 
-		response = MHD_create_response_from_buffer(strlen(lats), lats, MHD_RESPMEM_MUST_COPY);
-		if (unlikely(!response))
-		{
-			ret = db_queue_code(_connection, _url, MHD_HTTP_INTERNAL_SERVER_ERROR);
-		} else
-		{
-			ret = MHD_queue_response(_connection, MHD_HTTP_OK, response);
-			MHD_destroy_response(response);
-		}
-		pfcq_free(lats);
-		goto out;
+		goto noerror;
 	} else if (strcmp(_url, "/ping") == 0)
 	{
-		char* echo = pfcq_strdup("OK");
+		body = pfcq_strdup("OK");
 
-		response = MHD_create_response_from_buffer(strlen(echo), echo, MHD_RESPMEM_MUST_COPY);
-		if (unlikely(!response))
-		{
-			ret = db_queue_code(_connection, _url, MHD_HTTP_INTERNAL_SERVER_ERROR);
-		} else
-		{
-			ret = MHD_queue_response(_connection, MHD_HTTP_OK, response);
-			MHD_destroy_response(response);
-		}
-		pfcq_free(echo);
-		goto out;
+		goto noerror;
 	} else
+	{
 		ret = db_queue_code(_connection, _url, MHD_HTTP_NOT_FOUND);
 
-out:
+		goto error;
+	}
+
+noerror:
+	response = MHD_create_response_from_buffer(strlen(body), body, MHD_RESPMEM_MUST_COPY);
+	if (unlikely(!response))
+	{
+		ret = db_queue_code(_connection, _url, MHD_HTTP_INTERNAL_SERVER_ERROR);
+	} else
+	{
+		ret = MHD_queue_response(_connection, MHD_HTTP_OK, response);
+		MHD_destroy_response(response);
+	}
+	pfcq_free(body);
+
+error:
 	return ret;
 }
 
