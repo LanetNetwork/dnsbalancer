@@ -18,11 +18,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <local_context.h>
 #include <microhttpd.h>
-#include <stats.h>
 #include <string.h>
-#include <utils.h>
+
+#include "local_context.h"
+#include "stats.h"
+#include "utils.h"
 
 static db_local_context_t* ctx = NULL;
 static struct MHD_Daemon* mhd_daemon = NULL;

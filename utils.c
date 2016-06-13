@@ -18,8 +18,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <dnsbalancer.h>
-#include <utils.h>
+#include "dnsbalancer.h"
+#include "utils.h"
 
 #include "contrib/xxhash/xxhash.h"
 

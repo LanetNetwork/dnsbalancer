@@ -18,9 +18,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <local_context.h>
 #include <signal.h>
-#include <watchdog.h>
+
+#include "local_context.h"
+#include "watchdog.h"
 
 extern volatile sig_atomic_t should_exit;
 

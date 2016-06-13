@@ -25,8 +25,9 @@
 
 #include <ldns/ldns.h>
 #include <limits.h>
-#include <pfcq.h>
 #include <sys/queue.h>
+
+#include "contrib/pfcq/pfcq.h"
 
 typedef struct db_request_data
 {

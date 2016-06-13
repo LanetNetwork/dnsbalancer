@@ -23,10 +23,12 @@
 #ifndef __DNSBALANCER_H__
 #define __DNSBALANCER_H__
 
-#include <acl.h>
 #include <errno.h>
-#include <pfcq.h>
-#include <pfpthq.h>
+
+#include "acl.h"
+
+#include "contrib/pfcq/pfcq.h"
+#include "contrib/pfpthq/pfpthq.h"
 
 #if !defined(SO_REUSEPORT)
 #error "SO_REUSEPORT is undeclared (pre-3.9 Linux kernel?)"

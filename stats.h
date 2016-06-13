@@ -23,7 +23,7 @@
 #ifndef __STATS_H__
 #define __STATS_H__
 
-#include <dnsbalancer.h>
+#include "dnsbalancer.h"
 
 #define DB_LATENCY_BUCKETS	25
 

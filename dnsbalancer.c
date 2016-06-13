@@ -21,12 +21,14 @@
 #include <bsd/sys/cdefs.h>
 #include <bsd/unistd.h>
 #include <getopt.h>
-#include <global_context.h>
-#include <local_context.h>
-#include <pfcq.h>
 #include <signal.h>
-#include <stats.h>
 #include <sysexits.h>
+
+#include "global_context.h"
+#include "local_context.h"
+#include "stats.h"
+
+#include "contrib/pfcq/pfcq.h"
 
 volatile sig_atomic_t should_exit = 0;
 

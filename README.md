@@ -231,20 +231,11 @@ Compiling
 * gcc (tested with 4.8.3)
 * libbsd (tested with 0.6.0)
 * LDNS (tested with 1.6.16)
-* IniParser (tested with 3.1, 4.0)
 * libmicrohttpd (tested with 0.9.33)
 
 ### Compiling
 
-First, initialize and update git submodules:
-
-`git submodule init`
-`git submodule update`
-
-Please note, that it is possible that you will have to init and update sub-submodules
-for some submodules as they depend on each other.
-
-Then, create `build` folder, chdir to it, then run
+Create `build` folder, chdir to it, then run
 
 `cmake ..`
 
@@ -253,8 +244,6 @@ or
 `cmake -DCMAKE_BUILD_TYPE=Debug ..`
 
 to build app with debug info. Then just type `make`.
-
-If IniParser v4.0 is used, pass -DDB\_INIPARSER4=1 to cmake command.
 
 Usage
 -----

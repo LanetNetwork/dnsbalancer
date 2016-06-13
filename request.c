@@ -18,10 +18,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <dnsbalancer.h>
 #include <limits.h>
 #include <pthread.h>
-#include <request.h>
+
+#include "dnsbalancer.h"
+#include "request.h"
 
 #include "contrib/xxhash/xxhash.h"
 

@@ -18,8 +18,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <global_context.h>
 #include <signal.h>
+
+#include "global_context.h"
 
 #include "contrib/iniparser/iniparser.h"
 

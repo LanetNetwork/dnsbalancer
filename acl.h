@@ -24,10 +24,12 @@
 #define __ACL_H__
 
 #include <errno.h>
-#include <pfcq.h>
 #include <regex.h>
-#include <request.h>
 #include <sys/queue.h>
+
+#include "request.h"
+
+#include "contrib/pfcq/pfcq.h"
 
 typedef enum db_acl_source
 {

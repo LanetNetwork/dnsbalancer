@@ -23,7 +23,7 @@
 #ifndef __LOCAL_CONTEXT_H__
 #define __LOCAL_CONTEXT_H__
 
-#include <dnsbalancer.h>
+#include "dnsbalancer.h"
 
 struct db_local_context
 {

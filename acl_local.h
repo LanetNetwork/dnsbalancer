@@ -23,7 +23,7 @@
 #ifndef __ACL_LOCAL_H__
 #define __ACL_LOCAL_H__
 
-#include <acl.h>
+#include "acl.h"
 
 #include "contrib/iniparser/iniparser.h"
 

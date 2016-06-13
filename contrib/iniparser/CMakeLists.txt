@@ -30,8 +30,6 @@ endif ("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")
 
 set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -DMODE_NORMAL")
 
-include_directories(.)
-
 add_library(ln_iniparser
 	STATIC
 	dictionary.c

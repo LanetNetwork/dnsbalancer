@@ -18,15 +18,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <dnsbalancer.h>
 #include <errno.h>
-#include <global_context.h>
-#include <pfcq.h>
 #include <signal.h>
-#include <stats.h>
 #include <sys/epoll.h>
-#include <utils.h>
-#include <worker.h>
+
+#include "dnsbalancer.h"
+#include "global_context.h"
+#include "stats.h"
+#include "utils.h"
+#include "worker.h"
+
+#include "contrib/pfcq/pfcq.h"
 
 extern volatile sig_atomic_t should_exit;
 

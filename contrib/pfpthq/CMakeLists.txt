@@ -30,6 +30,6 @@ endif ("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")
 
 set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -DMODE_NORMAL")
 
-add_library(ln_xxhash
+add_library(ln_pfpthq
 	STATIC
-	xxhash.c)
+	pfpthq.c)

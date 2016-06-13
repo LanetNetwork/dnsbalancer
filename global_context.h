@@ -23,7 +23,7 @@
 #ifndef __GLOBAL_CONTEXT_H__
 #define __GLOBAL_CONTEXT_H__
 
-#include <dnsbalancer.h>
+#include "dnsbalancer.h"
 
 struct db_global_context
 {

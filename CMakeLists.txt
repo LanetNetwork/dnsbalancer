@@ -35,14 +35,10 @@ endif ("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")
 
 set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -DMODE_NORMAL")
 
-add_subdirectory(pfcquirks)
-add_subdirectory(pfpthquirks)
+add_subdirectory(contrib/pfcq)
+add_subdirectory(contrib/pfpthq)
 add_subdirectory(contrib/iniparser)
 add_subdirectory(contrib/xxhash)
-
-include_directories(.
-	pfcquirks
-	pfpthquirks)
 
 add_executable(dnsbalancer
 	acl.c
@@ -59,8 +55,8 @@ add_executable(dnsbalancer
 target_link_libraries(dnsbalancer
 	pthread
 	rt
-	ln_pfcquirks
-	ln_pfpthquirks
+	ln_pfcq
+	ln_pfpthq
 	ln_iniparser
 	ln_xxhash
 	${LDNS_LIBRARIES}

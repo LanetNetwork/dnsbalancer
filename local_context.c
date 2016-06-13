@@ -18,17 +18,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <acl_local.h>
-#include <local_context.h>
 #include <signal.h>
-#include <stats.h>
 #include <sys/epoll.h>
 #ifndef MODE_DEBUG
 #include <sys/resource.h>
 #endif
-#include <utils.h>
-#include <watchdog.h>
-#include <worker.h>
+
+#include "acl_local.h"
+#include "local_context.h"
+#include "stats.h"
+#include "utils.h"
+#include "watchdog.h"
+#include "worker.h"
 
 extern volatile sig_atomic_t should_exit;
 

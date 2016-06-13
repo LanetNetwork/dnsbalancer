@@ -18,11 +18,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <acl_local.h>
-#include <dnsbalancer.h>
-#include <pfcq.h>
 #include <pthread.h>
 
+#include "acl_local.h"
+#include "dnsbalancer.h"
+
+#include "contrib/pfcq/pfcq.h"
 #include "contrib/xxhash/xxhash.h"
 
 void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl* _acl)
