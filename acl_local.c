@@ -22,32 +22,20 @@
 #include <dnsbalancer.h>
 #include <pfcq.h>
 #include <pthread.h>
-#include <xxhash.h>
+
+#include "contrib/xxhash/xxhash.h"
 
 void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl* _acl)
 {
-#ifndef DB_INIPARSER4
-	char* acl_name = pfcq_strdup(_acl_name);
-#endif /* DB_INIPARSER4 */
-
-#ifdef DB_INIPARSER4
 	int acl_items_count = iniparser_getsecnkeys(_config, _acl_name);
-#else /* DB_INIPARSER4 */
-	int acl_items_count = iniparser_getsecnkeys(_config, acl_name);
-#endif /* DB_INIPARSER4 */
 	if (unlikely(acl_items_count < 1))
 	{
 		inform("No ACL %s found in config file\n", _acl_name);
 		return;
 	}
-#ifdef DB_INIPARSER4
 	// IniParser 4 do not use internal malloc for iniparser_getseckeys anymore.
-	// Also see pfcq_free() vs. free() on acl_items below.
 	const char** acl_items = pfcq_alloc(acl_items_count * sizeof(char*));
 	iniparser_getseckeys(_config, _acl_name, acl_items);
-#else /* DB_INIPARSER4 */
-	char** acl_items = iniparser_getseckeys(_config, acl_name);
-#endif /* DB_INIPARSER4 */
 	TAILQ_INIT(_acl);
 	for (int i = 0; i < acl_items_count; i++)
 	{
@@ -220,12 +208,8 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 			pfcq_free(acl_item_expr_p);
 			continue;
 		}
-#ifdef DB_INIPARSER4
 		const char** list_items = pfcq_alloc(acl_items_count * sizeof(char*));
 		iniparser_getseckeys(_config, acl_item_list, list_items);
-#else /* DB_INIPARSER4 */
-		char** list_items = iniparser_getseckeys(_config, acl_item_list);
-#endif /* DB_INIPARSER4 */
 		TAILQ_INIT(&new_acl_item->list);
 		for (int j = 0; j < list_items_count; j++)
 		{
@@ -279,26 +263,14 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 			}
 			TAILQ_INSERT_TAIL(&new_acl_item->list, new_list_item, tailq);
 		}
-#ifdef DB_INIPARSER4
 		pfcq_free(list_items);
-#else /* DB_INIPARSER4 */
-		free(list_items);
-#endif /* DB_INIPARSER4 */
 
 		TAILQ_INSERT_TAIL(_acl, new_acl_item, tailq);
 
 		pfcq_free(acl_item_expr_p);
 	}
 
-#ifdef DB_INIPARSER4
 	pfcq_free(acl_items);
-#else /* DB_INIPARSER4 */
-	free(acl_items);
-#endif /* DB_INIPARSER4 */
-
-#ifndef DB_INIPARSER4
-	pfcq_free(acl_name);
-#endif /* DB_INIPARSER4 */
 
 	return;
 }

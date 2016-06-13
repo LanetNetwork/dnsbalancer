@@ -24,7 +24,8 @@
 #define __ACL_LOCAL_H__
 
 #include <acl.h>
-#include <iniparser.h>
+
+#include "contrib/iniparser/iniparser.h"
 
 void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl* _acl) __attribute__((nonnull(1, 2, 3)));
 void db_acl_local_unload(struct db_acl* _acl) __attribute__((nonnull(1)));

@@ -322,11 +322,7 @@ db_local_context_t* db_local_context_load(const char* _config_file, db_global_co
 		pfcq_free(backend_mode_key);
 		pfcq_free(backend_forwarders_key);
 
-#ifdef DB_INIPARSER4
 		const char* frontend_acl = NULL;
-#else /* DB_INIPARSER4 */
-		char* frontend_acl = NULL;
-#endif /* DB_INIPARSER4 */
 		frontend_acl = iniparser_getstring(config, frontend_acl_key, NULL);
 		if (unlikely(!frontend_acl))
 		{

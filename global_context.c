@@ -19,8 +19,9 @@
  */
 
 #include <global_context.h>
-#include <iniparser.h>
 #include <signal.h>
+
+#include "contrib/iniparser/iniparser.h"
 
 extern volatile sig_atomic_t should_exit;
 

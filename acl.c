@@ -21,7 +21,8 @@
 #include <acl.h>
 #include <dnsbalancer.h>
 #include <pthread.h>
-#include <xxhash.h>
+
+#include "contrib/xxhash/xxhash.h"
 
 void db_acl_free_item(struct db_acl_item* _item)
 {

@@ -22,7 +22,8 @@
 #include <limits.h>
 #include <pthread.h>
 #include <request.h>
-#include <xxhash.h>
+
+#include "contrib/xxhash/xxhash.h"
 
 db_request_data_t db_make_request_data(ldns_pkt* _packet, int _forwarder_socket)
 {

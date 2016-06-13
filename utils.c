@@ -20,7 +20,8 @@
 
 #include <dnsbalancer.h>
 #include <utils.h>
-#include <xxhash.h>
+
+#include "contrib/xxhash/xxhash.h"
 
 static uint64_t db_netaddr_addr_hash64(sa_family_t _family, pfcq_net_address_t _netaddr)
 {

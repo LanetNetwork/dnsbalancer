@@ -12,8 +12,6 @@ endif (CMAKE_BUILD_TYPE MATCHES Debug)
 
 include(FindPkgConfig)
 if (PKG_CONFIG_FOUND)
-	pkg_check_modules(LIBMICROHTTPD libmicrohttpd)
-	pkg_check_modules(LIBBSD libbsd)
 	if(NOT CMAKE_BUILD_TYPE MATCHES Debug)
 		pkg_check_modules(LIBTCMALLOC_MINIMAL libtcmalloc_minimal)
 		if(LIBTCMALLOC_MINIMAL_FOUND EQUAL 1)
@@ -21,9 +19,6 @@ if (PKG_CONFIG_FOUND)
 		endif (LIBTCMALLOC_MINIMAL_FOUND EQUAL 1)
 	endif(NOT CMAKE_BUILD_TYPE MATCHES Debug)
 endif (PKG_CONFIG_FOUND)
-
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake-scripts)
-find_package(LDNS)
 
 set(CMAKE_C_FLAGS
 	"-std=c99 -D_DEFAULT_SOURCE -D_GNU_SOURCE -W -Wall -Wextra -pedantic -Wwrite-strings -Winit-self -Wcast-qual -Wpointer-arith -Wstrict-aliasing -Wformat=2 -Wmissing-declarations -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wold-style-definition -Wstrict-prototypes -Wmissing-prototypes")
@@ -35,39 +30,8 @@ endif ("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")
 
 set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -DMODE_NORMAL")
 
-add_subdirectory(pfcquirks)
-add_subdirectory(pfpthquirks)
-add_subdirectory(contrib/iniparser)
-add_subdirectory(contrib/xxhash)
+include_directories(.)
 
-include_directories(.
-	pfcquirks
-	pfpthquirks)
-
-add_executable(dnsbalancer
-	acl.c
-	acl_local.c
-	dnsbalancer.c
-	global_context.c
-	local_context.c
-	request.c
-	stats.c
-	utils.c
-	watchdog.c
-	worker.c)
-
-target_link_libraries(dnsbalancer
-	pthread
-	rt
-	ln_pfcquirks
-	ln_pfpthquirks
-	ln_iniparser
-	ln_xxhash
-	${LDNS_LIBRARIES}
-	${LIBBSD_LIBRARIES}
-	${LIBMICROHTTPD_LIBRARIES}
-	${GB_LD_EXTRA})
-
-install(TARGETS dnsbalancer
-	RUNTIME DESTINATION bin)
-
+add_library(ln_xxhash
+	STATIC
+	xxhash.c)
