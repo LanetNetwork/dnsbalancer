@@ -1,14 +1,14 @@
 Name:           dnsbalancer
 Version:        0.0.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Daemon to balance UDP DNS requests over DNS servers
 
 License:        GPLv3
 URL:            https://github.com/LanetNetwork/dnsbalancer
-Source0:        dnsbalancer-0.0.1.tar.xz
+Source0:        dnsbalancer-0.0.1.tar.gz
 
-BuildRequires:  gcc cmake make libbsd-devel ldns-devel iniparser-devel libmicrohttpd-devel openssl-devel
-Requires:       libbsd ldns iniparser libmicrohttpd openssl
+BuildRequires:  gcc cmake make libbsd-devel ldns-devel libmicrohttpd-devel openssl-devel
+Requires:       libbsd ldns libmicrohttpd openssl
 
 %description
 Daemon to balance UDP DNS requests over DNS servers
