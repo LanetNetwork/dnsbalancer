@@ -313,6 +313,21 @@ static int db_answer_to_connection(void* _data,
 		}
 		pfcq_free(lats);
 		goto out;
+	} else if (strcmp(_url, "/ping") == 0)
+	{
+		char* echo = pfcq_strdup("OK");
+
+		response = MHD_create_response_from_buffer(strlen(echo), echo, MHD_RESPMEM_MUST_COPY);
+		if (unlikely(!response))
+		{
+			ret = db_queue_code(_connection, _url, MHD_HTTP_INTERNAL_SERVER_ERROR);
+		} else
+		{
+			ret = MHD_queue_response(_connection, MHD_HTTP_OK, response);
+			MHD_destroy_response(response);
+		}
+		pfcq_free(echo);
+		goto out;
 	} else
 		ret = db_queue_code(_connection, _url, MHD_HTTP_NOT_FOUND);
 
