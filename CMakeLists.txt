@@ -28,7 +28,7 @@ find_package(LDNS)
 set(CMAKE_C_FLAGS
 	"-std=c99 -D_DEFAULT_SOURCE -D_GNU_SOURCE -W -Wall -Wextra -pedantic -Wwrite-strings -Winit-self -Wcast-qual -Wpointer-arith -Wstrict-aliasing -Wformat=2 -Wmissing-declarations -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wold-style-definition -Wstrict-prototypes -Wmissing-prototypes")
 
-set(CMAKE_C_FLAGS_DEBUG "-O0 -g -ggdb -DMODE_DEBUG")
+set(CMAKE_C_FLAGS_DEBUG "-O0 -g -ggdb -DMODE_DEBUG -pg")
 if ("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -w3 -wd2552")
 endif ("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")

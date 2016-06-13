@@ -35,7 +35,7 @@ handled through error paths), and statistic info is updated appropriately.
 
 To avoid 2^16 concurrent requests limit, request table consists of collision buckets.
 If there are 2 or more requests sent to forwarder with the same ID, they are stored
-in linked list. To speed up linked list lookup under high load, CRC64 hash of DNS
+in linked list. To speed up linked list lookup under high load, xxHash of DNS
 data is used.
 
 Configuration
@@ -225,13 +225,13 @@ Compiling
 
 ### Prerequisites
 
-* Linux v3.9+ (for SO\_REUSEPORT)
-* cmake (tested with 2.8.11)
-* make (tested with GNU Make 3.82)
-* gcc (tested with 4.8.3)
-* libbsd (tested with 0.6.0)
-* LDNS (tested with 1.6.16)
-* libmicrohttpd (tested with 0.9.33)
+* Linux v3.9+ (for SO\_REUSEPORT, tested with 3.10+)
+* cmake (tested with 2.8.11, 3.5.2)
+* make (tested with GNU Make 3.82, 4.2.1)
+* gcc (tested with 4.8.5, 6.1.1), clang (tested with 3.8.0) or icc (tested with 16.0.3)
+* libbsd (tested with 0.6.0, 0.8.3)
+* LDNS (tested with 1.6.16, 1.6.17)
+* libmicrohttpd (tested with 0.9.33, 0.9.49)
 
 ### Compiling
 
@@ -265,6 +265,10 @@ Distribution and Contribution
 -----------------------------
 
 Distributed under terms and conditions of GNU GPL v3 (only).
+
+IniParser is licensed under terms and conditions of MIT License.
+
+xxHash is licensed under terms and conditions of BSD 2-Clause License.
 
 The following people are involved in development:
 
