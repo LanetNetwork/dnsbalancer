@@ -232,6 +232,7 @@ Compiling
 * libbsd (tested with 0.6.0, 0.8.3)
 * LDNS (tested with 1.6.16, 1.6.17)
 * libmicrohttpd (tested with 0.9.33, 0.9.49)
+* libunwind (tested with 1.1)
 
 ### Compiling
 
