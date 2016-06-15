@@ -23,7 +23,7 @@
 #include <arpa/inet.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <time.h>
+#include <sys/time.h>
 
 #define __noop					(void)0
 
