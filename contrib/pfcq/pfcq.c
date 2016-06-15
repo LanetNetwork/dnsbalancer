@@ -19,8 +19,11 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
-#include <execinfo.h>
 #include <fnmatch.h>
+
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
+
 #include <limits.h>
 #include <pthread.h>
 #include <regex.h>
@@ -35,7 +38,8 @@
 
 #include "pfcq.h"
 
-#define STACKITEM_PREFIX_SYSLOG	"%ju) %s\n"
+#define STACKITEM_NAME_SIZE		256
+#define STACKITEM_PREFIX_SYSLOG	"%ju) %s+%lx: ip = %lx, sp = %lx\n"
 #define STACKITEM_PREFIX_STDERR	"\t"STACKITEM_PREFIX_SYSLOG
 #define WARNING_SUFFIX_SYSLOG	"Warning #%d"
 #define WARNING_SUFFIX_STDERR	WARNING_SUFFIX_SYSLOG", "
@@ -79,20 +83,30 @@ void __pfcq_debug(int _direct, const char* _format, ...)
 
 static void show_stacktrace(void)
 {
-	void* buffer[PFCQ_STACKTRACE_SIZE];
-	size_t buffer_size = 0;
-	char** symbols = NULL;
+	unw_cursor_t cursor;
+	unw_context_t uc;
+	unw_word_t ip = 0;
+	unw_word_t sp = 0;
+	unw_word_t offp = 0;
+	size_t index = 0;
+	char name[STACKITEM_NAME_SIZE];
 
-	pfcq_zero(buffer, PFCQ_STACKTRACE_SIZE * sizeof(void*));
+	pfcq_zero(&cursor, sizeof(unw_cursor_t));
+	pfcq_zero(&uc, sizeof(unw_context_t));
+	pfcq_zero(name, STACKITEM_NAME_SIZE);
 
-	buffer_size = backtrace(buffer, PFCQ_STACKTRACE_SIZE);
-	symbols = backtrace_symbols(buffer, buffer_size);
+	unw_getcontext(&uc);
+	unw_init_local(&cursor, &uc);
 
 	__pfcq_debug(1, "Stacktrace:\n");
-	for (size_t i = 0; i < buffer_size; i++)
-		__pfcq_debug(1, pfcq_use_syslog ? STACKITEM_PREFIX_SYSLOG : STACKITEM_PREFIX_STDERR, i, symbols[i]);
-
-	free(symbols);
+	while (unw_step(&cursor) > 0)
+	{
+		unw_get_proc_name(&cursor, name, STACKITEM_NAME_SIZE, &offp);
+		unw_get_reg(&cursor, UNW_REG_IP, &ip);
+		unw_get_reg(&cursor, UNW_REG_SP, &sp);
+		__pfcq_debug(1, pfcq_use_syslog ? STACKITEM_PREFIX_SYSLOG : STACKITEM_PREFIX_STDERR,
+			++index, name, (long)offp, (long)ip, (long)sp);
+	}
 
 	return;
 }

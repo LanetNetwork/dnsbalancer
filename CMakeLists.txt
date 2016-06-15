@@ -14,6 +14,7 @@ include(FindPkgConfig)
 if (PKG_CONFIG_FOUND)
 	pkg_check_modules(LIBMICROHTTPD libmicrohttpd)
 	pkg_check_modules(LIBBSD libbsd)
+	pkg_check_modules(LIBUNWIND libunwind)
 	if(NOT CMAKE_BUILD_TYPE MATCHES Debug)
 		pkg_check_modules(LIBTCMALLOC_MINIMAL libtcmalloc_minimal)
 		if(LIBTCMALLOC_MINIMAL_FOUND EQUAL 1)
@@ -56,6 +57,7 @@ target_link_libraries(dnsbalancer
 	ln_xxhash
 	${LDNS_LIBRARIES}
 	${LIBBSD_LIBRARIES}
+	${LIBUNWIND_LIBRARIES}
 	${LIBMICROHTTPD_LIBRARIES}
 	${GB_LD_EXTRA})
 

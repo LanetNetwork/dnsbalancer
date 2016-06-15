@@ -25,8 +25,6 @@
 #include <stdint.h>
 #include <time.h>
 
-#define PFCQ_STACKTRACE_SIZE	20
-
 #define __noop					(void)0
 
 #define inform(A, ...)			__pfcq_debug(1, A, __VA_ARGS__)
