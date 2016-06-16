@@ -399,8 +399,8 @@ void db_local_context_unload(struct db_local_context* _l_ctx)
 	for (size_t i = 0; i < _l_ctx->frontends_count; i++)
 	{
 		for (int j = 0; j < _l_ctx->frontends[i]->workers_count; j++)
-			if (unlikely(pthread_kill(_l_ctx->frontends[i]->workers[j]->id, SIGINT)))
-				panic("pthread_kill");
+			if (unlikely(eventfd_write(_l_ctx->frontends[i]->workers[j]->eventfd, 1) == -1))
+				panic("eventfd_write");
 		pfpthq_wait(_l_ctx->frontends[i]->workers_pool);
 		pfpthq_done(_l_ctx->frontends[i]->workers_pool);
 		for (int j = 0; j < _l_ctx->frontends[i]->workers_count; j++)

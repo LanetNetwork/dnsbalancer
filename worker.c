@@ -18,7 +18,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <signal.h>
 #include <sys/epoll.h>
 
 #include "acl.h"
@@ -28,8 +27,6 @@
 #include "utils.h"
 
 #include "worker.h"
-
-extern volatile sig_atomic_t should_exit;
 
 void* db_worker(void* _data)
 {
@@ -43,24 +40,11 @@ void* db_worker(void* _data)
 	pfcq_fprng_context_t fprng_context;
 	struct epoll_event epoll_event;
 	struct epoll_event epoll_events[EPOLL_MAXEVENTS];
-	sigset_t db_newmask;
-	sigset_t db_oldmask;
 
 	pfcq_zero(forwarders, frontend->backend.forwarders_count * sizeof(int));
 	pfcq_fprng_init(&fprng_context);
 	pfcq_zero(&epoll_event, sizeof(struct epoll_event));
 	pfcq_zero(&epoll_events, EPOLL_MAXEVENTS * sizeof(struct epoll_event));
-	pfcq_zero(&db_newmask, sizeof(sigset_t));
-	pfcq_zero(&db_oldmask, sizeof(sigset_t));
-
-	if (unlikely(sigemptyset(&db_newmask) != 0))
-		panic("sigemptyset");
-	if (unlikely(sigaddset(&db_newmask, SIGTERM) != 0))
-		panic("sigaddset");
-	if (unlikely(sigaddset(&db_newmask, SIGINT) != 0))
-		panic("sigaddset");
-	if (unlikely(pthread_sigmask(SIG_BLOCK, &db_newmask, &db_oldmask) != 0))
-		panic("pthread_sigmask");
 
 	server = socket(frontend->layer3, SOCK_DGRAM, IPPROTO_UDP);
 	if (unlikely(server == -1))
@@ -126,6 +110,10 @@ void* db_worker(void* _data)
 	epoll_fd = epoll_create1(0);
 	if (unlikely(epoll_fd == -1))
 		panic("epoll_create");
+	epoll_event.data.fd = data->eventfd;
+	epoll_event.events = EPOLLIN;
+	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, data->eventfd, &epoll_event) == -1))
+		panic("epoll_ctl");
 	epoll_event.data.fd = server;
 	epoll_event.events = EPOLLIN;
 	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server, &epoll_event) == -1))
@@ -140,18 +128,11 @@ void* db_worker(void* _data)
 
 	for (;;)
 	{
-		epoll_count = epoll_pwait(epoll_fd, epoll_events, EPOLL_MAXEVENTS, -1, &db_oldmask);
+		epoll_count = epoll_wait(epoll_fd, epoll_events, EPOLL_MAXEVENTS, -1);
 		if (unlikely(epoll_count == -1))
 		{
-			if (likely(errno == EINTR))
-			{
-				if (likely(should_exit)) // Shutdown gracefully
-				{
-					goto lfree;
-				} else
-					continue;
-			} else
-				continue;
+			// Ignore errors
+			continue;
 		} else
 		{
 			for (int i = 0; i < epoll_count; i++)
@@ -160,7 +141,12 @@ void* db_worker(void* _data)
 							(epoll_events[i].events & EPOLLHUP) ||
 							!(epoll_events[i].events & EPOLLIN)))
 				{
+					// Ignore hangup
 					continue;
+				} else if (unlikely(epoll_events[i].data.fd == data->eventfd))
+				{
+					// Shutdown
+					goto lfree;
 				} else if (likely(epoll_events[i].data.fd == server))
 				{
 					// Accept request from client
@@ -434,8 +420,10 @@ void* db_worker(void* _data)
 lfree:
 	verbose("Exiting worker %#lx...\n", data->id);
 
-	if (unlikely(pthread_sigmask(SIG_UNBLOCK, &db_newmask, NULL) != 0))
-		panic("pthread_sigmask");
+	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, data->eventfd, &epoll_event) == -1))
+		panic("epoll_ctl");
+	if (unlikely(close(data->eventfd) == -1))
+		panic("close");
 
 	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, server, &epoll_event) == -1))
 		panic("epoll_ctl");
