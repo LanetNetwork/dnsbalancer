@@ -33,8 +33,6 @@
 
 #include "local_context.h"
 
-extern volatile sig_atomic_t should_exit;
-
 struct db_local_context* db_local_context_load(const char* _config_file, struct db_global_context* _g_ctx)
 {
 	struct db_local_context* ret = NULL;

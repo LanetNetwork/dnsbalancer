@@ -37,6 +37,7 @@
 #include "dnsbalancer.h"
 
 volatile sig_atomic_t should_exit = 0;
+volatile sig_atomic_t should_reload = 0;
 
 static void __usage(char* _argv0)
 {
@@ -52,10 +53,20 @@ static void __version(void)
 
 static void sigall_handler(int _signo)
 {
-	(void)_signo;
-
-	if (likely(!should_exit))
-		should_exit = 1;
+	switch (_signo)
+	{
+		case SIGINT:
+		case SIGTERM:
+			if (likely(!should_exit))
+				should_exit = 1;
+			break;
+		case SIGUSR1:
+			if (likely(!should_reload))
+				should_reload = 1;
+			break;
+		default:
+			break;
+	}
 
 	return;
 }
@@ -147,43 +158,61 @@ int main(int argc, char** argv, char** envp)
 	if (unlikely(!config_file))
 		stop("No config file specified");
 
-	g_ctx = db_global_context_load(config_file);
-	l_ctx = db_local_context_load(config_file, g_ctx);
-
-	db_sigaction.sa_handler = sigall_handler;
-	if (unlikely(sigemptyset(&db_sigaction.sa_mask) != 0))
-		panic("sigemptyset");
-	db_sigaction.sa_flags = 0;
-	if (unlikely(sigaction(SIGTERM, &db_sigaction, NULL) != 0))
-		panic("sigaction");
-	if (unlikely(sigaction(SIGINT, &db_sigaction, NULL) != 0))
-		panic("sigaction");
-	if (unlikely(sigemptyset(&db_newmask) != 0))
-		panic("sigemptyset");
-	if (unlikely(sigaddset(&db_newmask, SIGTERM) != 0))
-		panic("sigaddset");
-	if (unlikely(sigaddset(&db_newmask, SIGINT) != 0))
-		panic("sigaddset");
-	if (unlikely(pthread_sigmask(SIG_BLOCK, &db_newmask, &db_oldmask) != 0))
-		panic("pthread_sigmask");
-
 	setproctitle_init(argc, argv, envp);
-	setproctitle("Serving %lu frontend(s)", l_ctx->frontends_count);
 
-	db_stats_init(l_ctx);
+	for (;;)
+	{
+		g_ctx = db_global_context_load(config_file);
+		l_ctx = db_local_context_load(config_file, g_ctx);
 
-	while (likely(!should_exit))
-		sigsuspend(&db_oldmask);
+		db_sigaction.sa_handler = sigall_handler;
+		if (unlikely(sigemptyset(&db_sigaction.sa_mask) != 0))
+			panic("sigemptyset");
+		db_sigaction.sa_flags = 0;
+		if (unlikely(sigaction(SIGTERM, &db_sigaction, NULL) != 0))
+			panic("sigaction");
+		if (unlikely(sigaction(SIGINT, &db_sigaction, NULL) != 0))
+			panic("sigaction");
+		if (unlikely(sigaction(SIGUSR1, &db_sigaction, NULL) != 0))
+			panic("sigaction");
+		if (unlikely(sigemptyset(&db_newmask) != 0))
+			panic("sigemptyset");
+		if (unlikely(sigaddset(&db_newmask, SIGTERM) != 0))
+			panic("sigaddset");
+		if (unlikely(sigaddset(&db_newmask, SIGINT) != 0))
+			panic("sigaddset");
+		if (unlikely(sigaddset(&db_newmask, SIGUSR1) != 0))
+			panic("sigaddset");
+		if (unlikely(pthread_sigmask(SIG_BLOCK, &db_newmask, &db_oldmask) != 0))
+			panic("pthread_sigmask");
 
-	verbose("%s\n", "Got interrupt signal, attempting to exit gracefully...");
+		setproctitle("Serving %lu frontend(s)", l_ctx->frontends_count);
 
-	db_stats_done();
+		db_stats_init(l_ctx);
 
-	db_local_context_unload(l_ctx);
-	db_global_context_unload(g_ctx);
+		while (likely(!should_exit && !should_reload))
+			sigsuspend(&db_oldmask);
 
-	if (unlikely(pthread_sigmask(SIG_UNBLOCK, &db_newmask, NULL) != 0))
-		panic("pthread_sigmask");
+		if (should_exit)
+			verbose("%s\n", "Exit gracefully...");
+
+		if (should_reload)
+			verbose("%s\n", "Reload gracefully...");
+
+		db_stats_done();
+
+		db_local_context_unload(l_ctx);
+		db_global_context_unload(g_ctx);
+
+		if (unlikely(pthread_sigmask(SIG_UNBLOCK, &db_newmask, NULL) != 0))
+			panic("pthread_sigmask");
+
+		if (should_exit)
+			break;
+
+		if (should_reload)
+			should_reload = 0;
+	}
 
 	verbose("%s\n", "Bye.");
 

@@ -30,6 +30,7 @@
 #include "global_context.h"
 
 extern volatile sig_atomic_t should_exit;
+extern volatile sig_atomic_t should_reload;
 
 static void* db_gc(void* _data)
 {
@@ -39,7 +40,7 @@ static void* db_gc(void* _data)
 
 	for (;;)
 	{
-		if (unlikely(should_exit))
+		if (unlikely(should_exit || should_reload))
 			break;
 
 		struct timespec current_time;

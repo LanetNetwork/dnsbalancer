@@ -25,6 +25,7 @@
 #include "watchdog.h"
 
 extern volatile sig_atomic_t should_exit;
+extern volatile sig_atomic_t should_reload;
 
 int db_ping_forwarder(struct db_forwarder* _forwarder)
 {
@@ -125,7 +126,7 @@ void* db_watchdog(void* _data)
 
 	for (;;)
 	{
-		if (unlikely(should_exit))
+		if (unlikely(should_exit || should_reload))
 			break;
 
 		// Watchdog
