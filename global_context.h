@@ -23,18 +23,8 @@
 #ifndef __GLOBAL_CONTEXT_H__
 #define __GLOBAL_CONTEXT_H__
 
-#include "dnsbalancer.h"
-
-struct db_global_context
-{
-	db_request_list_t db_requests;
-	pfpthq_pool_t* gc_pool;
-	pthread_t gc_id;
-	uint64_t db_gc_interval;
-};
-
-db_global_context_t* db_global_context_load(const char* _config_file) __attribute__((nonnull(1)));
-void db_global_context_unload(db_global_context_t* _g_ctx) __attribute__((nonnull(1)));
+struct db_global_context* db_global_context_load(const char* _config_file) __attribute__((nonnull(1)));
+void db_global_context_unload(struct db_global_context* _g_ctx) __attribute__((nonnull(1)));
 
 #endif /* __GLOBAL_CONTEXT_H__ */
 

@@ -19,23 +19,24 @@
  */
 
 #include <signal.h>
-#include <sys/epoll.h>
+
 #ifndef MODE_DEBUG
 #include <sys/resource.h>
 #endif
 
 #include "acl_local.h"
-#include "local_context.h"
-#include "stats.h"
-#include "utils.h"
 #include "watchdog.h"
 #include "worker.h"
 
+#include "contrib/iniparser/iniparser.h"
+
+#include "local_context.h"
+
 extern volatile sig_atomic_t should_exit;
 
-db_local_context_t* db_local_context_load(const char* _config_file, db_global_context_t* _g_ctx)
+struct db_local_context* db_local_context_load(const char* _config_file, struct db_global_context* _g_ctx)
 {
-	db_local_context_t* ret = NULL;
+	struct db_local_context* ret = NULL;
 	dictionary* config = NULL;
 #ifndef MODE_DEBUG
 	rlim_t limit;
@@ -46,7 +47,7 @@ db_local_context_t* db_local_context_load(const char* _config_file, db_global_co
 	if (unlikely(!config))
 		stop("Unable to load config file");
 
-	ret = pfcq_alloc(sizeof(db_local_context_t));
+	ret = pfcq_alloc(sizeof(struct db_local_context));
 
 	ret->db_watchdog_interval = ((uint64_t)iniparser_getint(config, DB_CONFIG_WATCHDOG_INTERVAL_KEY, DB_DEFAULT_WATCHDOG_INTERVAL)) * 1000000ULL;
 
@@ -112,10 +113,10 @@ db_local_context_t* db_local_context_load(const char* _config_file, db_global_co
 	while (likely(frontend = strsep(&frontends_str_iterator, DB_CONFIG_LIST_SEPARATOR)))
 	{
 		if (unlikely(!ret->frontends))
-			ret->frontends = pfcq_alloc(sizeof(db_frontend_t*));
+			ret->frontends = pfcq_alloc(sizeof(struct db_frontend*));
 		else
-			ret->frontends = pfcq_realloc(ret->frontends, (ret->frontends_count + 1) * sizeof(db_frontend_t*));
-		ret->frontends[ret->frontends_count] = pfcq_alloc(sizeof(db_frontend_t));
+			ret->frontends = pfcq_realloc(ret->frontends, (ret->frontends_count + 1) * sizeof(struct db_frontend*));
+		ret->frontends[ret->frontends_count] = pfcq_alloc(sizeof(struct db_frontend));
 		ret->frontends[ret->frontends_count]->g_ctx = _g_ctx;
 
 		char* frontend_workers_key = pfcq_mstring("%s:%s", frontend, "workers");
@@ -223,12 +224,12 @@ db_local_context_t* db_local_context_load(const char* _config_file, db_global_co
 		while (likely(forwarder = strsep(&backend_forwarders_iterator, DB_CONFIG_LIST_SEPARATOR)))
 		{
 			if (unlikely(!ret->frontends[ret->frontends_count]->backend.forwarders))
-				ret->frontends[ret->frontends_count]->backend.forwarders = pfcq_alloc(sizeof(db_forwarder_t*));
+				ret->frontends[ret->frontends_count]->backend.forwarders = pfcq_alloc(sizeof(struct db_forwarder*));
 			else
 				ret->frontends[ret->frontends_count]->backend.forwarders =
 					pfcq_realloc(ret->frontends[ret->frontends_count]->backend.forwarders,
-						(ret->frontends[ret->frontends_count]->backend.forwarders_count + 1) * sizeof(db_forwarder_t*));
-			ret->frontends[ret->frontends_count]->backend.forwarders[ret->frontends[ret->frontends_count]->backend.forwarders_count] = pfcq_alloc(sizeof(db_frontend_t));
+						(ret->frontends[ret->frontends_count]->backend.forwarders_count + 1) * sizeof(struct db_forwarder*));
+			ret->frontends[ret->frontends_count]->backend.forwarders[ret->frontends[ret->frontends_count]->backend.forwarders_count] = pfcq_alloc(sizeof(struct db_frontend));
 
 			char* forwarder_host_key = pfcq_mstring("%s:%s", forwarder, "host");
 			char* forwarder_port_key = pfcq_mstring("%s:%s", forwarder, "port");
@@ -386,7 +387,7 @@ db_local_context_t* db_local_context_load(const char* _config_file, db_global_co
 	return ret;
 }
 
-void db_local_context_unload(db_local_context_t* _l_ctx)
+void db_local_context_unload(struct db_local_context* _l_ctx)
 {
 	for (size_t i = 0; i < _l_ctx->frontends_count; i++)
 	{

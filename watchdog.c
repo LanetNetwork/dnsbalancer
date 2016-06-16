@@ -20,12 +20,13 @@
 
 #include <signal.h>
 
-#include "local_context.h"
+#include "request.h"
+
 #include "watchdog.h"
 
 extern volatile sig_atomic_t should_exit;
 
-int db_ping_forwarder(db_forwarder_t* _forwarder)
+int db_ping_forwarder(struct db_forwarder* _forwarder)
 {
 	int ret = 0;
 	size_t db_ping_packet_buffer_size = 0;
@@ -78,7 +79,7 @@ int db_ping_forwarder(db_forwarder_t* _forwarder)
 		goto packet_free;
 	if (unlikely(send(db_ping_socket, db_ping_packet_buffer, db_ping_packet_buffer_size, 0) == -1))
 		goto ping_buffer_free;
-	db_request_data_t request_data = db_make_request_data(db_ping_packet, db_ping_socket);
+	struct db_request_data request_data = db_make_request_data(db_ping_packet, db_ping_socket);
 
 	// Ping reply
 	ssize_t db_echo_packet_buffer_size = recv(db_ping_socket, db_echo_packet_buffer, DB_DEFAULT_DNS_PACKET_SIZE, 0);
@@ -99,7 +100,7 @@ int db_ping_forwarder(db_forwarder_t* _forwarder)
 		ldns_rr* db_echo_query = ldns_rr_list_rr(db_echo_queries, i);
 		if (likely(ldns_rr_is_question(db_echo_query)))
 		{
-			db_request_data_t reply_data = db_make_request_data(db_echo_packet, db_ping_socket);
+			struct db_request_data reply_data = db_make_request_data(db_echo_packet, db_ping_socket);
 			if (likely(db_compare_request_data(request_data, reply_data)))
 				ret = 1;
 			break;
@@ -120,7 +121,7 @@ out:
 
 void* db_watchdog(void* _data)
 {
-	db_local_context_t* ctx = _data;
+	struct db_local_context* ctx = _data;
 
 	for (;;)
 	{

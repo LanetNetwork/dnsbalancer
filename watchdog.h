@@ -23,7 +23,9 @@
 #ifndef __WATCHDOG_H__
 #define __WATCHDOG_H__
 
-int db_ping_forwarder(db_forwarder_t* _forwarder) __attribute__((nonnull(1)));
+#include "types.h"
+
+int db_ping_forwarder(struct db_forwarder* _forwarder) __attribute__((nonnull(1)));
 void* db_watchdog(void* _data) __attribute__((nonnull(1)));
 
 #endif /* __WATCHDOG_H__ */

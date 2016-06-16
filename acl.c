@@ -18,10 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <pthread.h>
-
 #include "acl.h"
-#include "dnsbalancer.h"
 
 #include "contrib/xxhash/xxhash.h"
 
@@ -51,10 +48,10 @@ void db_acl_free_list_item(struct db_list_item* _item)
 	return;
 }
 
-db_acl_action_t db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _address, db_request_data_t* _request_data, struct db_acl* _acl,
+enum db_acl_action db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _address, struct db_request_data* _request_data, struct db_acl* _acl,
 	void** _acl_data, size_t* _acl_data_length)
 {
-	db_acl_action_t ret = DB_ACL_ACTION_ALLOW;
+	enum db_acl_action ret = DB_ACL_ACTION_ALLOW;
 
 	struct db_acl_item* current_acl_item = NULL;
 	TAILQ_FOREACH(current_acl_item, _acl, tailq)

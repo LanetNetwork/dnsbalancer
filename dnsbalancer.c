@@ -18,17 +18,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <bsd/sys/cdefs.h>
-#include <bsd/unistd.h>
+#include <bsd/bsd.h>
 #include <getopt.h>
+#include <libgen.h>
 #include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sysexits.h>
+#include <unistd.h>
 
 #include "global_context.h"
 #include "local_context.h"
 #include "stats.h"
+#include "types.h"
 
 #include "contrib/pfcq/pfcq.h"
+
+#include "dnsbalancer.h"
 
 volatile sig_atomic_t should_exit = 0;
 
@@ -56,8 +62,8 @@ static void sigall_handler(int _signo)
 
 int main(int argc, char** argv, char** envp)
 {
-	db_global_context_t* g_ctx = NULL;
-	db_local_context_t* l_ctx = NULL;
+	struct db_global_context* g_ctx = NULL;
+	struct db_local_context* l_ctx = NULL;
 	int opts = 0;
 	int daemonize = 0;
 	int be_verbose = 0;

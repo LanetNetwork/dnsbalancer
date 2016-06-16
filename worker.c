@@ -18,23 +18,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <errno.h>
 #include <signal.h>
 #include <sys/epoll.h>
 
-#include "dnsbalancer.h"
-#include "global_context.h"
+#include "acl.h"
+#include "request.h"
 #include "stats.h"
+#include "types.h"
 #include "utils.h"
-#include "worker.h"
 
-#include "contrib/pfcq/pfcq.h"
+#include "worker.h"
 
 extern volatile sig_atomic_t should_exit;
 
 void* db_worker(void* _data)
 {
-	db_frontend_t* data = _data;
+	struct db_frontend* data = _data;
 	int option = 1;
 	int epoll_fd = -1;
 	int epoll_count = -1;
@@ -215,7 +214,7 @@ void* db_worker(void* _data)
 						if (likely(ldns_rr_is_question(client_query)))
 						{
 							// Extract query info
-							db_request_data_t request_data = db_make_request_data(client_query_packet, forwarders[forwarder_index]);
+							struct db_request_data request_data = db_make_request_data(client_query_packet, forwarders[forwarder_index]);
 
 							// Check query against ACL
 							void* acl_data = NULL;
@@ -310,7 +309,7 @@ void* db_worker(void* _data)
 									char* a_fqdn = ldns_rdf2str(a_fqdn_rdf);
 
 									// Get substitution IP from ACL
-									db_set_a_t* set_a_params = acl_data;
+									struct db_set_a* set_a_params = acl_data;
 
 									char a_str[INET_ADDRSTRLEN];
 									pfcq_zero(a_str, INET_ADDRSTRLEN);
@@ -390,7 +389,7 @@ void* db_worker(void* _data)
 						if (likely(ldns_rr_is_question(backend_query)))
 						{
 							// Get DNS response data
-							db_request_data_t request_data = db_make_request_data(backend_answer_packet, epoll_events[i].data.fd);
+							struct db_request_data request_data = db_make_request_data(backend_answer_packet, epoll_events[i].data.fd);
 							// Select request from request table
 							struct db_request* found_request = db_eject_request(&data->g_ctx->db_requests, ldns_pkt_id(backend_answer_packet), request_data);
 							if (likely(found_request))

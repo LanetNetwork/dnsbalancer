@@ -23,23 +23,15 @@
 #ifndef __STATS_H__
 #define __STATS_H__
 
-#include "dnsbalancer.h"
+#include "types.h"
 
-#define DB_LATENCY_BUCKETS	25
-
-typedef struct db_latency_stats
-{
-	uint64_t lats[DB_LATENCY_BUCKETS];
-	pthread_spinlock_t lats_lock[DB_LATENCY_BUCKETS];
-} db_latency_stats_t;
-
-void db_stats_frontend_in(db_frontend_t* _frontend, uint64_t _delta_bytes) __attribute__((nonnull(1)));
-void db_stats_frontend_in_invalid(db_frontend_t* _frontend, uint64_t _delta_bytes) __attribute__((nonnull(1)));
-void db_stats_frontend_out(db_frontend_t* _frontend, uint64_t _delta_bytes, ldns_pkt_rcode _rcode) __attribute__((nonnull(1)));
-void db_stats_forwarder_in(db_forwarder_t* _forwarder, uint64_t _delta_bytes) __attribute__((nonnull(1)));
-void db_stats_forwarder_out(db_forwarder_t* _forwarder, uint64_t _delta_bytes, ldns_pkt_rcode _rcode) __attribute__((nonnull(1)));
+void db_stats_frontend_in(struct db_frontend* _frontend, uint64_t _delta_bytes) __attribute__((nonnull(1)));
+void db_stats_frontend_in_invalid(struct db_frontend* _frontend, uint64_t _delta_bytes) __attribute__((nonnull(1)));
+void db_stats_frontend_out(struct db_frontend* _frontend, uint64_t _delta_bytes, ldns_pkt_rcode _rcode) __attribute__((nonnull(1)));
+void db_stats_forwarder_in(struct db_forwarder* _forwarder, uint64_t _delta_bytes) __attribute__((nonnull(1)));
+void db_stats_forwarder_out(struct db_forwarder* _forwarder, uint64_t _delta_bytes, ldns_pkt_rcode _rcode) __attribute__((nonnull(1)));
 void db_stats_latency_update(struct timespec _ctime);
-void db_stats_init(db_local_context_t* _ctx) __attribute__((nonnull(1)));
+void db_stats_init(struct db_local_context* _ctx) __attribute__((nonnull(1)));
 void db_stats_done(void);
 
 #endif /* __STATS_H__ */

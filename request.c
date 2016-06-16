@@ -18,22 +18,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <limits.h>
-#include <pthread.h>
-
-#include "dnsbalancer.h"
-#include "request.h"
-
 #include "contrib/xxhash/xxhash.h"
 
-db_request_data_t db_make_request_data(ldns_pkt* _packet, int _forwarder_socket)
+#include "request.h"
+
+struct db_request_data db_make_request_data(ldns_pkt* _packet, int _forwarder_socket)
 {
-	db_request_data_t ret;
+	struct db_request_data ret;
 	ldns_rr* rr = NULL;
 	ldns_rdf* owner = NULL;
 	char* owner_str = NULL;
 
-	pfcq_zero(&ret, sizeof(db_request_data_t));
+	pfcq_zero(&ret, sizeof(struct db_request_data));
 
 	rr = ldns_rr_list_rr(ldns_pkt_question(_packet), 0);
 	ret.rr_type = ldns_rr_get_type(rr);
@@ -52,7 +48,7 @@ db_request_data_t db_make_request_data(ldns_pkt* _packet, int _forwarder_socket)
 	return ret;
 }
 
-int db_compare_request_data(db_request_data_t _data1, db_request_data_t _data2)
+int db_compare_request_data(struct db_request_data _data1, struct db_request_data _data2)
 {
 	return
 		_data1.hash == _data2.hash &&
@@ -63,7 +59,7 @@ int db_compare_request_data(db_request_data_t _data1, db_request_data_t _data2)
 			strncmp(_data1.fqdn, _data2.fqdn, HOST_NAME_MAX) == 0);
 }
 
-struct db_request* db_make_request(ldns_pkt* _packet, db_request_data_t _data, pfcq_net_address_t _address, size_t _forwarder_index)
+struct db_request* db_make_request(ldns_pkt* _packet, struct db_request_data _data, pfcq_net_address_t _address, size_t _forwarder_index)
 {
 	struct db_request* ret = NULL;
 
@@ -79,7 +75,7 @@ struct db_request* db_make_request(ldns_pkt* _packet, db_request_data_t _data, p
 	return ret;
 }
 
-uint16_t db_insert_request(db_request_list_t* _list, struct db_request* _request)
+uint16_t db_insert_request(struct db_request_list* _list, struct db_request* _request)
 {
 	uint16_t index = 0;
 	uint32_t index_container = 0;
@@ -103,7 +99,7 @@ uint16_t db_insert_request(db_request_list_t* _list, struct db_request* _request
 	return index;
 }
 
-struct db_request* db_eject_request(db_request_list_t* _list, uint16_t _index, db_request_data_t _data)
+struct db_request* db_eject_request(struct db_request_list* _list, uint16_t _index, struct db_request_data _data)
 {
 	struct db_request* ret = NULL;
 
@@ -130,7 +126,7 @@ struct db_request* db_eject_request(db_request_list_t* _list, uint16_t _index, d
 	return ret;
 }
 
-void db_remove_request_unsafe(db_request_list_t* _list, uint16_t _index, struct db_request* _request)
+void db_remove_request_unsafe(struct db_request_list* _list, uint16_t _index, struct db_request* _request)
 {
 	TAILQ_REMOVE(&_list->list[_index].requests, _request, tailq);
 	pfcq_free(_request);

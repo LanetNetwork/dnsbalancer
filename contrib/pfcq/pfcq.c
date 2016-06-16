@@ -18,7 +18,6 @@
 
 #include <ctype.h>
 #include <dirent.h>
-#include <errno.h>
 #include <fnmatch.h>
 
 #define UNW_LOCAL_ONLY

@@ -18,11 +18,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <pthread.h>
 #include <signal.h>
 
-#include "global_context.h"
+#include "request.h"
+#include "types.h"
 
 #include "contrib/iniparser/iniparser.h"
+#include "contrib/pfcq/pfcq.h"
+
+#include "global_context.h"
 
 extern volatile sig_atomic_t should_exit;
 
@@ -30,7 +35,7 @@ static void* db_gc(void* _data)
 {
 	if (unlikely(!_data))
 		return NULL;
-	db_global_context_t* ctx = _data;
+	struct db_global_context* ctx = _data;
 
 	for (;;)
 	{
@@ -67,24 +72,24 @@ static void* db_gc(void* _data)
 	return NULL;
 }
 
-db_global_context_t* db_global_context_load(const char* _config_file)
+struct db_global_context* db_global_context_load(const char* _config_file)
 {
-	db_global_context_t* ret = NULL;
+	struct db_global_context* ret = NULL;
 	dictionary* config = NULL;
 
-	ret = pfcq_alloc(sizeof(db_global_context_t));
+	ret = pfcq_alloc(sizeof(struct db_global_context));
 
 	config = iniparser_load(_config_file);
 	if (unlikely(!config))
 		stop("Unable to load config file");
 
-	pfcq_zero(&ret->db_requests.list, UINT16_MAX * sizeof(db_request_bucket_t));
+	pfcq_zero(&ret->db_requests.list, UINT16_MAX * sizeof(struct db_request_bucket));
 	ret->db_requests.list_index = 0;
 	if (unlikely(pthread_spin_init(&ret->db_requests.list_index_lock, PTHREAD_PROCESS_PRIVATE)))
 		panic("pthread_spin_init");
 	for (size_t i = 0; i < UINT16_MAX; i++)
 	{
-		pfcq_zero(&ret->db_requests.list[i], sizeof(db_request_bucket_t));
+		pfcq_zero(&ret->db_requests.list[i], sizeof(struct db_request_bucket));
 		if (unlikely(pthread_mutex_init(&ret->db_requests.list[i].requests_lock, NULL)))
 			panic("pthread_mutex_init");
 		TAILQ_INIT(&ret->db_requests.list[i].requests);
@@ -106,7 +111,7 @@ db_global_context_t* db_global_context_load(const char* _config_file)
 	return ret;
 }
 
-void db_global_context_unload(db_global_context_t* _g_ctx)
+void db_global_context_unload(struct db_global_context* _g_ctx)
 {
 	pfpthq_wait(_g_ctx->gc_pool);
 	pfpthq_done(_g_ctx->gc_pool);
@@ -121,7 +126,7 @@ void db_global_context_unload(db_global_context_t* _g_ctx)
 		if (unlikely(pthread_mutex_destroy(&_g_ctx->db_requests.list[i].requests_lock)))
 			panic("pthread_mutex_destroy");
 	}
-	pfcq_zero(_g_ctx->db_requests.list, UINT16_MAX * sizeof(db_request_bucket_t));
+	pfcq_zero(_g_ctx->db_requests.list, UINT16_MAX * sizeof(struct db_request_bucket));
 	_g_ctx->db_requests.list_index = 0;
 	if (unlikely(pthread_spin_destroy(&_g_ctx->db_requests.list_index_lock)))
 		panic("pthread_spin_destroy");

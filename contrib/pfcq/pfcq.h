@@ -21,9 +21,12 @@
 #define __PFCQ_H__
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include <sys/time.h>
+#include <time.h>
 
 #define __noop					(void)0
 

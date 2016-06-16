@@ -18,10 +18,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "dnsbalancer.h"
-#include "utils.h"
-
 #include "contrib/xxhash/xxhash.h"
+
+#include "utils.h"
 
 static uint64_t db_netaddr_addr_hash64(sa_family_t _family, pfcq_net_address_t _netaddr)
 {
@@ -82,7 +81,7 @@ static uint64_t db_netaddr_port_hash64(sa_family_t _family, pfcq_net_address_t _
 	return ret;
 }
 
-__attribute__((always_inline)) static inline ssize_t __db_find_alive_forwarder_by_offset(uint64_t _offset, db_backend_t* _backend)
+__attribute__((always_inline)) static inline ssize_t __db_find_alive_forwarder_by_offset(uint64_t _offset, struct db_backend* _backend)
 {
 	ssize_t ret = -1;
 
@@ -99,7 +98,7 @@ __attribute__((always_inline)) static inline ssize_t __db_find_alive_forwarder_b
 	return ret;
 }
 
-ssize_t db_find_alive_forwarder(db_frontend_t* _frontend, pfcq_fprng_context_t* _fprng_context, pfcq_net_address_t _netaddr)
+ssize_t db_find_alive_forwarder(struct db_frontend* _frontend, pfcq_fprng_context_t* _fprng_context, pfcq_net_address_t _netaddr)
 {
 	if (unlikely(!_frontend))
 		return -1;

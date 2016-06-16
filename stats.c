@@ -19,17 +19,17 @@
  */
 
 #include <microhttpd.h>
-#include <string.h>
 
-#include "local_context.h"
-#include "stats.h"
+#include "types.h"
 #include "utils.h"
 
-static db_local_context_t* ctx = NULL;
-static struct MHD_Daemon* mhd_daemon = NULL;
-static db_latency_stats_t db_lats;
+#include "stats.h"
 
-void db_stats_frontend_in(db_frontend_t* _frontend, uint64_t _delta_bytes)
+static struct db_local_context* ctx = NULL;
+static struct MHD_Daemon* mhd_daemon = NULL;
+static struct db_latency_stats db_lats;
+
+void db_stats_frontend_in(struct db_frontend* _frontend, uint64_t _delta_bytes)
 {
 	if (unlikely(pthread_spin_lock(&_frontend->stats.in_lock)))
 		panic("pthread_spin_lock");
@@ -41,7 +41,7 @@ void db_stats_frontend_in(db_frontend_t* _frontend, uint64_t _delta_bytes)
 	return;
 }
 
-void db_stats_frontend_in_invalid(db_frontend_t* _frontend, uint64_t _delta_bytes)
+void db_stats_frontend_in_invalid(struct db_frontend* _frontend, uint64_t _delta_bytes)
 {
 	if (unlikely(pthread_spin_lock(&_frontend->stats.in_invalid_lock)))
 		panic("pthread_spin_lock");
@@ -53,7 +53,7 @@ void db_stats_frontend_in_invalid(db_frontend_t* _frontend, uint64_t _delta_byte
 	return;
 }
 
-void db_stats_frontend_out(db_frontend_t* _frontend, uint64_t _delta_bytes, ldns_pkt_rcode _rcode)
+void db_stats_frontend_out(struct db_frontend* _frontend, uint64_t _delta_bytes, ldns_pkt_rcode _rcode)
 {
 	if (unlikely(pthread_spin_lock(&_frontend->stats.out_lock)))
 		panic("pthread_spin_lock");
@@ -83,7 +83,7 @@ void db_stats_frontend_out(db_frontend_t* _frontend, uint64_t _delta_bytes, ldns
 	return;
 }
 
-static db_frontend_stats_t db_stats_frontend(db_frontend_t* _frontend)
+static struct db_frontend_stats db_stats_frontend(struct db_frontend* _frontend)
 {
 	if (unlikely(pthread_spin_lock(&_frontend->stats.in_lock)))
 		panic("pthread_spin_lock");
@@ -92,7 +92,7 @@ static db_frontend_stats_t db_stats_frontend(db_frontend_t* _frontend)
 	if (unlikely(pthread_spin_lock(&_frontend->stats.out_lock)))
 		panic("pthread_spin_lock");
 
-	db_frontend_stats_t ret = _frontend->stats;
+	struct db_frontend_stats ret = _frontend->stats;
 
 	if (unlikely(pthread_spin_unlock(&_frontend->stats.out_lock)))
 		panic("pthread_spin_unlock");
@@ -104,7 +104,7 @@ static db_frontend_stats_t db_stats_frontend(db_frontend_t* _frontend)
 	return ret;
 }
 
-void db_stats_forwarder_in(db_forwarder_t* _forwarder, uint64_t _delta_bytes)
+void db_stats_forwarder_in(struct db_forwarder* _forwarder, uint64_t _delta_bytes)
 {
 	if (unlikely(pthread_spin_lock(&_forwarder->stats.in_lock)))
 		panic("pthread_spin_lock");
@@ -116,7 +116,7 @@ void db_stats_forwarder_in(db_forwarder_t* _forwarder, uint64_t _delta_bytes)
 	return;
 }
 
-void db_stats_forwarder_out(db_forwarder_t* _forwarder, uint64_t _delta_bytes, ldns_pkt_rcode _rcode)
+void db_stats_forwarder_out(struct db_forwarder* _forwarder, uint64_t _delta_bytes, ldns_pkt_rcode _rcode)
 {
 	if (unlikely(pthread_spin_lock(&_forwarder->stats.out_lock)))
 		panic("pthread_spin_lock");
@@ -146,14 +146,14 @@ void db_stats_forwarder_out(db_forwarder_t* _forwarder, uint64_t _delta_bytes, l
 	return;
 }
 
-static db_forwarder_stats_t db_stats_forwarder(db_forwarder_t* _forwarder)
+static struct db_forwarder_stats db_stats_forwarder(struct db_forwarder* _forwarder)
 {
 	if (unlikely(pthread_spin_lock(&_forwarder->stats.in_lock)))
 		panic("pthread_spin_lock");
 	if (unlikely(pthread_spin_lock(&_forwarder->stats.out_lock)))
 		panic("pthread_spin_lock");
 
-	db_forwarder_stats_t ret = _forwarder->stats;
+	struct db_forwarder_stats ret = _forwarder->stats;
 
 	if (unlikely(pthread_spin_unlock(&_forwarder->stats.out_lock)))
 		panic("pthread_spin_unlock");
@@ -204,7 +204,7 @@ static int db_answer_to_connection(void* _data,
 		body = pfcq_mstring("%s\n", "# name,FRONTEND,in_pkts,in_bytes,in_invalid_pkts,in_invalid_bytes,out_pkts,out_bytes,noerror,servfail,nxdomain,refused,other");
 		for (size_t i = 0; i < ctx->frontends_count; i++)
 		{
-			db_frontend_stats_t fe_stats = db_stats_frontend(ctx->frontends[i]);
+			struct db_frontend_stats fe_stats = db_stats_frontend(ctx->frontends[i]);
 			char* row = pfcq_mstring("%s,FRONTEND,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu\n",
 					ctx->frontends[i]->name,
 					fe_stats.in_pkts, fe_stats.in_bytes,
@@ -218,7 +218,7 @@ static int db_answer_to_connection(void* _data,
 		for (size_t i = 0; i < ctx->frontends_count; i++)
 			for (size_t j = 0; j < ctx->frontends[i]->backend.forwarders_count; j++)
 			{
-				db_forwarder_stats_t frw_stats = db_stats_forwarder(ctx->frontends[i]->backend.forwarders[j]);
+				struct db_forwarder_stats frw_stats = db_stats_forwarder(ctx->frontends[i]->backend.forwarders[j]);
 				char* row = pfcq_mstring("%s,FORWARDER,%s,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu\n",
 						ctx->frontends[i]->backend.forwarders[j]->name,
 						ctx->frontends[i]->name,
@@ -334,9 +334,9 @@ void db_stats_latency_update(struct timespec _ctime)
 	return;
 }
 
-void db_stats_init(db_local_context_t* _ctx)
+void db_stats_init(struct db_local_context* _ctx)
 {
-	pfcq_zero(&db_lats, sizeof(db_latency_stats_t));
+	pfcq_zero(&db_lats, sizeof(struct db_latency_stats));
 	for (size_t i = 0; i < DB_LATENCY_BUCKETS; i++)
 		if (unlikely(pthread_spin_init(&db_lats.lats_lock[i], PTHREAD_PROCESS_PRIVATE)))
 			panic("pthread_spin_init");
