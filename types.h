@@ -214,14 +214,16 @@ struct db_request_list
 	uint64_t ttl;
 };
 
+struct db_worker;
+
 struct db_frontend
 {
 	char* name;
 	pfcq_net_address_t address;
 	size_t dns_max_packet_length;
 	pfpthq_pool_t* workers_pool;
-	pthread_t* workers_id;
-	int workers;
+	struct db_worker** workers;
+	int workers_count;
 	enum db_acl_source acl_source;
 	sa_family_t layer3;
 	struct db_global_context* g_ctx;
@@ -248,6 +250,13 @@ struct db_local_context
 	unsigned short int stats_enabled;
 	sa_family_t stats_layer3_family;
 	pfcq_net_address_t stats_address;
+};
+
+struct db_worker
+{
+	struct db_frontend* frontend;
+	pthread_t id;
+	int eventfd;
 };
 
 struct db_latency_stats

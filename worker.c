@@ -33,19 +33,20 @@ extern volatile sig_atomic_t should_exit;
 
 void* db_worker(void* _data)
 {
-	struct db_frontend* data = _data;
+	struct db_worker* data = _data;
+	struct db_frontend* frontend = data->frontend;
 	int option = 1;
 	int epoll_fd = -1;
 	int epoll_count = -1;
 	int server = -1;
-	int forwarders[data->backend.forwarders_count];
+	int forwarders[frontend->backend.forwarders_count];
 	pfcq_fprng_context_t fprng_context;
 	struct epoll_event epoll_event;
 	struct epoll_event epoll_events[EPOLL_MAXEVENTS];
 	sigset_t db_newmask;
 	sigset_t db_oldmask;
 
-	pfcq_zero(forwarders, data->backend.forwarders_count * sizeof(int));
+	pfcq_zero(forwarders, frontend->backend.forwarders_count * sizeof(int));
 	pfcq_fprng_init(&fprng_context);
 	pfcq_zero(&epoll_event, sizeof(struct epoll_event));
 	pfcq_zero(&epoll_events, EPOLL_MAXEVENTS * sizeof(struct epoll_event));
@@ -61,7 +62,7 @@ void* db_worker(void* _data)
 	if (unlikely(pthread_sigmask(SIG_BLOCK, &db_newmask, &db_oldmask) != 0))
 		panic("pthread_sigmask");
 
-	server = socket(data->layer3, SOCK_DGRAM, IPPROTO_UDP);
+	server = socket(frontend->layer3, SOCK_DGRAM, IPPROTO_UDP);
 	if (unlikely(server == -1))
 	{
 		fail("socket");
@@ -69,7 +70,7 @@ void* db_worker(void* _data)
 	}
 	if (unlikely(setsockopt(server, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, (const void*)&option, sizeof(option)) == -1))
 		panic("setsockopt");
-	switch (data->layer3)
+	switch (frontend->layer3)
 	{
 		case PF_INET:
 			break;
@@ -82,13 +83,13 @@ void* db_worker(void* _data)
 			break;
 	}
 	int bind_res = -1;
-	switch (data->layer3)
+	switch (frontend->layer3)
 	{
 		case PF_INET:
-			bind_res = bind(server, (struct sockaddr*)&data->address.address4, sizeof(struct sockaddr_in));
+			bind_res = bind(server, (struct sockaddr*)&frontend->address.address4, sizeof(struct sockaddr_in));
 			break;
 		case PF_INET6:
-			bind_res = bind(server, (struct sockaddr*)&data->address.address6, sizeof(struct sockaddr_in6));
+			bind_res = bind(server, (struct sockaddr*)&frontend->address.address6, sizeof(struct sockaddr_in6));
 			break;
 		default:
 			break;
@@ -100,19 +101,19 @@ void* db_worker(void* _data)
 	}
 
 	// Will query forwarders from fixed UDP sockets (not to pollute Linux conntrack table)
-	for (size_t i = 0; i < data->backend.forwarders_count; i++)
+	for (size_t i = 0; i < frontend->backend.forwarders_count; i++)
 	{
-		forwarders[i] = socket(data->backend.forwarders[i]->layer3, SOCK_DGRAM, IPPROTO_UDP);
+		forwarders[i] = socket(frontend->backend.forwarders[i]->layer3, SOCK_DGRAM, IPPROTO_UDP);
 		if (unlikely(forwarders[i] == -1))
 			panic("socket");
 		int connect_res = -1;
-		switch (data->backend.forwarders[i]->layer3)
+		switch (frontend->backend.forwarders[i]->layer3)
 		{
 			case PF_INET:
-				connect_res = connect(forwarders[i], (const struct sockaddr*)&data->backend.forwarders[i]->address.address4, (socklen_t)sizeof(struct sockaddr_in));
+				connect_res = connect(forwarders[i], (const struct sockaddr*)&frontend->backend.forwarders[i]->address.address4, (socklen_t)sizeof(struct sockaddr_in));
 				break;
 			case PF_INET6:
-				connect_res = connect(forwarders[i], (const struct sockaddr*)&data->backend.forwarders[i]->address.address6, (socklen_t)sizeof(struct sockaddr_in6));
+				connect_res = connect(forwarders[i], (const struct sockaddr*)&frontend->backend.forwarders[i]->address.address6, (socklen_t)sizeof(struct sockaddr_in6));
 				break;
 			default:
 				panic("socket domain");
@@ -129,7 +130,7 @@ void* db_worker(void* _data)
 	epoll_event.events = EPOLLIN;
 	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server, &epoll_event) == -1))
 		panic("epoll_ctl");
-	for (size_t i = 0; i < data->backend.forwarders_count; i++)
+	for (size_t i = 0; i < frontend->backend.forwarders_count; i++)
 	{
 		epoll_event.data.fd = forwarders[i];
 		epoll_event.events = EPOLLIN;
@@ -163,20 +164,20 @@ void* db_worker(void* _data)
 				} else if (likely(epoll_events[i].data.fd == server))
 				{
 					// Accept request from client
-					uint8_t server_buffer[data->dns_max_packet_length];
+					uint8_t server_buffer[frontend->dns_max_packet_length];
 					pfcq_net_address_t address;
 					socklen_t client_address_length;
 					ssize_t query_size = -1;
-					switch (data->layer3)
+					switch (frontend->layer3)
 					{
 						case PF_INET:
 							client_address_length = (socklen_t)sizeof(struct sockaddr_in);
-							query_size = recvfrom(server, server_buffer, data->dns_max_packet_length, 0,
+							query_size = recvfrom(server, server_buffer, frontend->dns_max_packet_length, 0,
 									(struct sockaddr*)&address.address4, &client_address_length);
 							break;
 						case PF_INET6:
 							client_address_length = (socklen_t)sizeof(struct sockaddr_in6);
-							query_size = recvfrom(server, server_buffer, data->dns_max_packet_length, 0,
+							query_size = recvfrom(server, server_buffer, frontend->dns_max_packet_length, 0,
 									(struct sockaddr*)&address.address6, &client_address_length);
 							break;
 						default:
@@ -186,10 +187,10 @@ void* db_worker(void* _data)
 					if (unlikely(query_size == -1))
 						continue;
 
-					db_stats_frontend_in(data, query_size);
+					db_stats_frontend_in(frontend, query_size);
 
 					// Find alive forwarder
-					ssize_t forwarder_index = db_find_alive_forwarder(data, &fprng_context, address);
+					ssize_t forwarder_index = db_find_alive_forwarder(frontend, &fprng_context, address);
 					if (unlikely(forwarder_index == -1))
 						continue;
 
@@ -197,12 +198,12 @@ void* db_worker(void* _data)
 					ldns_pkt* client_query_packet = NULL;
 					if (unlikely(ldns_wire2pkt(&client_query_packet, server_buffer, query_size) != LDNS_STATUS_OK))
 					{
-						db_stats_frontend_in_invalid(data, query_size);
+						db_stats_frontend_in_invalid(frontend, query_size);
 						continue;
 					}
 					if (unlikely(ldns_pkt_qdcount(client_query_packet) != 1))
 					{
-						db_stats_frontend_in_invalid(data, query_size);
+						db_stats_frontend_in_invalid(frontend, query_size);
 						ldns_pkt_free(client_query_packet);
 						continue;
 					}
@@ -219,14 +220,14 @@ void* db_worker(void* _data)
 							// Check query against ACL
 							void* acl_data = NULL;
 							size_t acl_data_length = 0;
-							switch (db_check_query_acl(data->layer3, &address, &request_data, &data->acl, &acl_data, &acl_data_length))
+							switch (db_check_query_acl(frontend->layer3, &address, &request_data, &frontend->acl, &acl_data, &acl_data_length))
 							{
 								case DB_ACL_ACTION_ALLOW:
 								{
 									// Put all info about new request into request table
 									struct db_request* new_request = db_make_request(client_query_packet, request_data, address, forwarder_index);
 									// Get new request ID
-									uint16_t new_id = db_insert_request(&data->g_ctx->db_requests, new_request);
+									uint16_t new_id = db_insert_request(&frontend->g_ctx->db_requests, new_request);
 
 									// Substitute new ID to client DNS query
 									uint16_t id_nbo = htons(new_id);
@@ -235,7 +236,7 @@ void* db_worker(void* _data)
 									// Forward new request to forwarder
 									ssize_t send_res = send(forwarders[forwarder_index], server_buffer, query_size, 0);
 									if (likely(send_res != -1))
-										db_stats_forwarder_in(data->backend.forwarders[forwarder_index], send_res);
+										db_stats_forwarder_in(frontend->backend.forwarders[forwarder_index], send_res);
 									break;
 								}
 								case DB_ACL_ACTION_DENY:
@@ -261,7 +262,7 @@ void* db_worker(void* _data)
 									uint8_t* nxdomain_buffer = NULL;
 									size_t nxdomain_buffer_size;
 									ldns_pkt2wire(&nxdomain_buffer, nxdomain_packet, &nxdomain_buffer_size);
-									switch (data->layer3)
+									switch (frontend->layer3)
 									{
 										case PF_INET:
 											sendto(server, nxdomain_buffer, nxdomain_buffer_size, 0,
@@ -329,7 +330,7 @@ void* db_worker(void* _data)
 									uint8_t* a_buffer = NULL;
 									size_t a_buffer_size;
 									ldns_pkt2wire(&a_buffer, a_packet, &a_buffer_size);
-									switch (data->layer3)
+									switch (frontend->layer3)
 									{
 										case PF_INET:
 											sendto(server, a_buffer, a_buffer_size, 0,
@@ -367,8 +368,8 @@ void* db_worker(void* _data)
 				} else
 				{
 					// Accept answer from forwarder
-					uint8_t backend_buffer[data->dns_max_packet_length];
-					ssize_t answer_size = recv(epoll_events[i].data.fd, backend_buffer, data->dns_max_packet_length, 0);
+					uint8_t backend_buffer[frontend->dns_max_packet_length];
+					ssize_t answer_size = recv(epoll_events[i].data.fd, backend_buffer, frontend->dns_max_packet_length, 0);
 					if (unlikely(answer_size == -1))
 						continue;
 
@@ -391,7 +392,7 @@ void* db_worker(void* _data)
 							// Get DNS response data
 							struct db_request_data request_data = db_make_request_data(backend_answer_packet, epoll_events[i].data.fd);
 							// Select request from request table
-							struct db_request* found_request = db_eject_request(&data->g_ctx->db_requests, ldns_pkt_id(backend_answer_packet), request_data);
+							struct db_request* found_request = db_eject_request(&frontend->g_ctx->db_requests, ldns_pkt_id(backend_answer_packet), request_data);
 							if (likely(found_request))
 							{
 								// Substitute original request ID to response
@@ -399,10 +400,10 @@ void* db_worker(void* _data)
 								memcpy(backend_buffer, &id_nbo, sizeof(uint16_t));
 
 								ldns_pkt_rcode backend_answer_packet_rcode = ldns_pkt_get_rcode(backend_answer_packet);
-								db_stats_forwarder_out(data->backend.forwarders[found_request->forwarder_index], answer_size, backend_answer_packet_rcode);
+								db_stats_forwarder_out(frontend->backend.forwarders[found_request->forwarder_index], answer_size, backend_answer_packet_rcode);
 								// Send answer to client
 								ssize_t sendto_res = -1;
-								switch (data->layer3)
+								switch (frontend->layer3)
 								{
 									case PF_INET:
 										sendto_res = sendto(server, backend_buffer, answer_size, 0,
@@ -419,7 +420,7 @@ void* db_worker(void* _data)
 								db_stats_latency_update(found_request->ctime);
 								pfcq_free(found_request);
 								if (likely(sendto_res != -1))
-									db_stats_frontend_out(data, sendto_res, backend_answer_packet_rcode);
+									db_stats_frontend_out(frontend, sendto_res, backend_answer_packet_rcode);
 								break;
 							}
 						}
@@ -431,7 +432,7 @@ void* db_worker(void* _data)
 	}
 
 lfree:
-	verbose("Exiting worker %#lx...\n", pthread_self());
+	verbose("Exiting worker %#lx...\n", data->id);
 
 	if (unlikely(pthread_sigmask(SIG_UNBLOCK, &db_newmask, NULL) != 0))
 		panic("pthread_sigmask");
@@ -441,7 +442,7 @@ lfree:
 	if (unlikely(close(server) == -1))
 		panic("close");
 
-	for (size_t i = 0; i < data->backend.forwarders_count; i++)
+	for (size_t i = 0; i < frontend->backend.forwarders_count; i++)
 	{
 		epoll_event.data.fd = forwarders[i];
 		epoll_event.events = EPOLLIN;
@@ -451,7 +452,7 @@ lfree:
 			panic("close");
 	}
 
-	pfpthq_dec(data->workers_pool);
+	pfpthq_dec(frontend->workers_pool);
 
 	return NULL;
 }

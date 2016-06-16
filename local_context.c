@@ -19,6 +19,7 @@
  */
 
 #include <signal.h>
+#include <sys/eventfd.h>
 
 #ifndef MODE_DEBUG
 #include <sys/resource.h>
@@ -128,9 +129,9 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 		char* frontend_acl_key = pfcq_mstring("%s:%s", frontend, "acl");
 
 		ret->frontends[ret->frontends_count]->name = pfcq_strdup(frontend);
-		ret->frontends[ret->frontends_count]->workers = pfcq_hint_cpus((int)iniparser_getint(config, frontend_workers_key, -1));
-		ret->frontends[ret->frontends_count]->workers_pool = pfpthq_init(frontend, ret->frontends[ret->frontends_count]->workers);
-		ret->frontends[ret->frontends_count]->workers_id = pfcq_alloc(ret->frontends[ret->frontends_count]->workers * sizeof(pthread_t));
+		ret->frontends[ret->frontends_count]->workers_count = pfcq_hint_cpus((int)iniparser_getint(config, frontend_workers_key, -1));
+		ret->frontends[ret->frontends_count]->workers_pool = pfpthq_init(frontend, ret->frontends[ret->frontends_count]->workers_count);
+		ret->frontends[ret->frontends_count]->workers = pfcq_alloc(ret->frontends[ret->frontends_count]->workers_count * sizeof(struct db_worker*));
 		ret->frontends[ret->frontends_count]->dns_max_packet_length = (int)iniparser_getint(config, frontend_dns_max_packet_length_key, DB_DEFAULT_DNS_PACKET_SIZE);
 
 		const char* frontend_layer3 = iniparser_getstring(config, frontend_layer3_key, NULL);
@@ -380,8 +381,14 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 		if (unlikely(pthread_spin_init(&ret->frontends[i]->stats.in_invalid_lock, PTHREAD_PROCESS_PRIVATE)))
 			panic("pthread_spin_init");
 
-		for (int j = 0; j < ret->frontends[i]->workers; j++)
-			pfpthq_inc(ret->frontends[i]->workers_pool, &ret->frontends[i]->workers_id[j], ret->frontends[i]->name, db_worker, (void*)ret->frontends[i]);
+		for (int j = 0; j < ret->frontends[i]->workers_count; j++)
+		{
+			struct db_worker* new_worker = pfcq_alloc(sizeof(struct db_worker));
+			new_worker->frontend = ret->frontends[i];
+			new_worker->eventfd = eventfd(0, 0);
+			ret->frontends[i]->workers[j] = new_worker;
+			pfpthq_inc(ret->frontends[i]->workers_pool, &new_worker->id, ret->frontends[i]->name, db_worker, new_worker);
+		}
 	}
 
 	return ret;
@@ -391,11 +398,13 @@ void db_local_context_unload(struct db_local_context* _l_ctx)
 {
 	for (size_t i = 0; i < _l_ctx->frontends_count; i++)
 	{
-		for (int j = 0; j < _l_ctx->frontends[i]->workers; j++)
-			if (unlikely(pthread_kill(_l_ctx->frontends[i]->workers_id[j], SIGINT)))
+		for (int j = 0; j < _l_ctx->frontends[i]->workers_count; j++)
+			if (unlikely(pthread_kill(_l_ctx->frontends[i]->workers[j]->id, SIGINT)))
 				panic("pthread_kill");
 		pfpthq_wait(_l_ctx->frontends[i]->workers_pool);
 		pfpthq_done(_l_ctx->frontends[i]->workers_pool);
+		for (int j = 0; j < _l_ctx->frontends[i]->workers_count; j++)
+			pfcq_free(_l_ctx->frontends[i]->workers[j]);
 		for (size_t j = 0; j < _l_ctx->frontends[i]->backend.forwarders_count; j++)
 		{
 			pfcq_free(_l_ctx->frontends[i]->backend.forwarders[j]->name);
@@ -407,7 +416,7 @@ void db_local_context_unload(struct db_local_context* _l_ctx)
 			pfcq_free(_l_ctx->frontends[i]->backend.forwarders[j]);
 		}
 		pfcq_free(_l_ctx->frontends[i]->backend.forwarders);
-		pfcq_free(_l_ctx->frontends[i]->workers_id);
+		pfcq_free(_l_ctx->frontends[i]->workers);
 		pfcq_free(_l_ctx->frontends[i]->name);
 		if (unlikely(pthread_spin_destroy(&_l_ctx->frontends[i]->stats.in_lock)))
 			panic("pthread_spin_destroy");
