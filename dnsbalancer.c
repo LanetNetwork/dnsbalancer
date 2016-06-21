@@ -160,31 +160,31 @@ int main(int argc, char** argv, char** envp)
 
 	setproctitle_init(argc, argv, envp);
 
+	db_sigaction.sa_handler = sigall_handler;
+	if (unlikely(sigemptyset(&db_sigaction.sa_mask) != 0))
+		panic("sigemptyset");
+	db_sigaction.sa_flags = 0;
+	if (unlikely(sigaction(SIGTERM, &db_sigaction, NULL) != 0))
+		panic("sigaction");
+	if (unlikely(sigaction(SIGINT, &db_sigaction, NULL) != 0))
+		panic("sigaction");
+	if (unlikely(sigaction(SIGUSR1, &db_sigaction, NULL) != 0))
+		panic("sigaction");
+	if (unlikely(sigemptyset(&db_newmask) != 0))
+		panic("sigemptyset");
+	if (unlikely(sigaddset(&db_newmask, SIGTERM) != 0))
+		panic("sigaddset");
+	if (unlikely(sigaddset(&db_newmask, SIGINT) != 0))
+		panic("sigaddset");
+	if (unlikely(sigaddset(&db_newmask, SIGUSR1) != 0))
+		panic("sigaddset");
+	if (unlikely(pthread_sigmask(SIG_BLOCK, &db_newmask, &db_oldmask) != 0))
+		panic("pthread_sigmask");
+
 	for (;;)
 	{
 		g_ctx = db_global_context_load(config_file);
 		l_ctx = db_local_context_load(config_file, g_ctx);
-
-		db_sigaction.sa_handler = sigall_handler;
-		if (unlikely(sigemptyset(&db_sigaction.sa_mask) != 0))
-			panic("sigemptyset");
-		db_sigaction.sa_flags = 0;
-		if (unlikely(sigaction(SIGTERM, &db_sigaction, NULL) != 0))
-			panic("sigaction");
-		if (unlikely(sigaction(SIGINT, &db_sigaction, NULL) != 0))
-			panic("sigaction");
-		if (unlikely(sigaction(SIGUSR1, &db_sigaction, NULL) != 0))
-			panic("sigaction");
-		if (unlikely(sigemptyset(&db_newmask) != 0))
-			panic("sigemptyset");
-		if (unlikely(sigaddset(&db_newmask, SIGTERM) != 0))
-			panic("sigaddset");
-		if (unlikely(sigaddset(&db_newmask, SIGINT) != 0))
-			panic("sigaddset");
-		if (unlikely(sigaddset(&db_newmask, SIGUSR1) != 0))
-			panic("sigaddset");
-		if (unlikely(pthread_sigmask(SIG_BLOCK, &db_newmask, &db_oldmask) != 0))
-			panic("pthread_sigmask");
 
 		setproctitle("Serving %lu frontend(s)", l_ctx->frontends_count);
 
@@ -204,15 +204,15 @@ int main(int argc, char** argv, char** envp)
 		db_local_context_unload(l_ctx);
 		db_global_context_unload(g_ctx);
 
-		if (unlikely(pthread_sigmask(SIG_UNBLOCK, &db_newmask, NULL) != 0))
-			panic("pthread_sigmask");
-
 		if (should_exit)
 			break;
 
 		if (should_reload)
 			should_reload = 0;
 	}
+
+	if (unlikely(pthread_sigmask(SIG_UNBLOCK, &db_newmask, NULL) != 0))
+		panic("pthread_sigmask");
 
 	verbose("%s\n", "Bye.");
 
