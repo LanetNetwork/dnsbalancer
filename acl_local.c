@@ -221,6 +221,13 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 
 			// DNS RR type
 			char* list_item_type = strsep(&list_item_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+			if (unlikely(!list_item_type))
+			{
+				inform("ACL: %s, no RR type specified in config file\n", _acl_name);
+				pfcq_free(list_item_p);
+				db_acl_free_list_item(new_list_item);
+				continue;
+			}
 			if (strcmp(list_item_type, DB_CONFIG_ACL_RR_TYPE_ALL) == 0)
 				new_list_item->rr_type = DB_ACL_RR_TYPE_ALL;
 			else if (strcmp(list_item_type, DB_CONFIG_ACL_RR_TYPE_ANY) == 0)
@@ -235,6 +242,13 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 
 			// DNS request FQDN
 			char* list_item_fqdn = strsep(&list_item_i, DB_CONFIG_PARAMETERS_SEPARATOR);
+			if (unlikely(!list_item_fqdn))
+			{
+				inform("ACL: %s, no FQDN specified in config file\n", _acl_name);
+				pfcq_free(list_item_p);
+				db_acl_free_list_item(new_list_item);
+				continue;
+			}
 			new_list_item->s_fqdn = pfcq_strdup(list_item_fqdn);
 			new_list_item->s_fqdn_length = strlen(new_list_item->s_fqdn);
 			new_list_item->s_fqdn_hash = XXH64((uint8_t*)new_list_item->s_fqdn, new_list_item->s_fqdn_length, DB_HASH_SEED);
