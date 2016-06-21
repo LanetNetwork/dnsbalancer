@@ -117,6 +117,7 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 			ret->frontends = pfcq_realloc(ret->frontends, (ret->frontends_count + 1) * sizeof(struct db_frontend*));
 		ret->frontends[ret->frontends_count] = pfcq_alloc(sizeof(struct db_frontend));
 		ret->frontends[ret->frontends_count]->g_ctx = _g_ctx;
+		ret->frontends[ret->frontends_count]->l_ctx = ret;
 
 		char* frontend_workers_key = pfcq_mstring("%s:%s", frontend, "workers");
 		char* frontend_dns_max_packet_length_key = pfcq_mstring("%s:%s", frontend, "dns_max_packet_length");

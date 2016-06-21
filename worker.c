@@ -403,7 +403,7 @@ void* db_worker(void* _data)
 										panic("socket domain");
 										break;
 								}
-								db_stats_latency_update(found_request->ctime);
+								db_stats_latency_update(frontend->l_ctx, found_request->ctime);
 								pfcq_free(found_request);
 								if (likely(sendto_res != -1))
 									db_stats_frontend_out(frontend, sendto_res, backend_answer_packet_rcode);

@@ -199,7 +199,7 @@ int main(int argc, char** argv, char** envp)
 		if (should_reload)
 			verbose("%s\n", "Reload gracefully...");
 
-		db_stats_done();
+		db_stats_done(l_ctx);
 
 		db_local_context_unload(l_ctx);
 		db_global_context_unload(g_ctx);

@@ -30,9 +30,9 @@ void db_stats_frontend_in_invalid(struct db_frontend* _frontend, uint64_t _delta
 void db_stats_frontend_out(struct db_frontend* _frontend, uint64_t _delta_bytes, ldns_pkt_rcode _rcode) __attribute__((nonnull(1)));
 void db_stats_forwarder_in(struct db_forwarder* _forwarder, uint64_t _delta_bytes) __attribute__((nonnull(1)));
 void db_stats_forwarder_out(struct db_forwarder* _forwarder, uint64_t _delta_bytes, ldns_pkt_rcode _rcode) __attribute__((nonnull(1)));
-void db_stats_latency_update(struct timespec _ctime);
+void db_stats_latency_update(struct db_local_context* _ctx, struct timespec _ctime);
 void db_stats_init(struct db_local_context* _ctx) __attribute__((nonnull(1)));
-void db_stats_done(void);
+void db_stats_done(struct db_local_context* _ctx) __attribute__((nonnull(1)));
 
 #endif /* __STATS_H__ */
 

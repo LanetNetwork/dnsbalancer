@@ -24,6 +24,7 @@
 #define __TYPES_H__
 
 #include <ldns/ldns.h>
+#include <microhttpd.h>
 #include <pthread.h>
 #include <regex.h>
 #include <stdint.h>
@@ -214,8 +215,6 @@ struct db_request_list
 	uint64_t ttl;
 };
 
-struct db_worker;
-
 struct db_frontend
 {
 	char* name;
@@ -227,6 +226,7 @@ struct db_frontend
 	enum db_acl_source acl_source;
 	sa_family_t layer3;
 	struct db_global_context* g_ctx;
+	struct db_local_context* l_ctx;
 	struct db_backend backend;
 	struct db_frontend_stats stats;
 	struct db_acl acl;
@@ -240,6 +240,12 @@ struct db_global_context
 	uint64_t db_gc_interval;
 };
 
+struct db_latency_stats
+{
+	uint64_t lats[DB_LATENCY_BUCKETS];
+	pthread_spinlock_t lats_lock[DB_LATENCY_BUCKETS];
+};
+
 struct db_local_context
 {
 	struct db_frontend** frontends;
@@ -250,6 +256,8 @@ struct db_local_context
 	unsigned short int stats_enabled;
 	sa_family_t stats_layer3_family;
 	pfcq_net_address_t stats_address;
+	struct MHD_Daemon* mhd_daemon;
+	struct db_latency_stats db_lats;
 };
 
 struct db_worker
@@ -257,12 +265,6 @@ struct db_worker
 	struct db_frontend* frontend;
 	pthread_t id;
 	int eventfd;
-};
-
-struct db_latency_stats
-{
-	uint64_t lats[DB_LATENCY_BUCKETS];
-	pthread_spinlock_t lats_lock[DB_LATENCY_BUCKETS];
 };
 
 #endif /* __TYPES_H__ */
