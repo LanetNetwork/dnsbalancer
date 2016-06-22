@@ -20,6 +20,8 @@
 
 #include <pthread.h>
 #include <signal.h>
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
 
 #include "request.h"
 #include "types.h"
@@ -29,19 +31,48 @@
 
 #include "global_context.h"
 
-extern volatile sig_atomic_t should_exit;
-extern volatile sig_atomic_t should_reload;
-
 static void* db_gc(void* _data)
 {
+	int epoll_fd = -1;
+	struct epoll_event epoll_event;
+	struct epoll_event epoll_events[EPOLL_MAXEVENTS];
+
 	if (unlikely(!_data))
 		return NULL;
 	struct db_global_context* ctx = _data;
 
+	epoll_fd = epoll_create1(0);
+	if (unlikely(epoll_fd == -1))
+		panic("epoll_create");
+	epoll_event.data.fd = ctx->gc_eventfd;
+	epoll_event.events = EPOLLIN;
+	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, ctx->gc_eventfd, &epoll_event) == -1))
+		panic("epoll_ctl");
+
 	for (;;)
 	{
-		if (unlikely(should_exit || should_reload))
-			break;
+		int epoll_count = epoll_wait(epoll_fd, epoll_events, EPOLL_MAXEVENTS, ctx->db_gc_interval);
+		if (unlikely(epoll_count == -1))
+		{
+			// Ignore errors
+			continue;
+		} else
+		{
+			for (int i = 0; i < epoll_count; i++)
+			{
+				if (unlikely((epoll_events[i].events & EPOLLERR) ||
+							(epoll_events[i].events & EPOLLHUP) ||
+							!(epoll_events[i].events & EPOLLIN)))
+				{
+					// Ignore hangup
+					continue;
+				} else if (likely(epoll_events[i].data.fd == ctx->gc_eventfd))
+				{
+					// Shutdown
+					goto lfree;
+				}
+			}
+		}
 
 		struct timespec current_time;
 		if (unlikely(clock_gettime(CLOCK_REALTIME, &current_time) == -1))
@@ -64,9 +95,13 @@ static void* db_gc(void* _data)
 			if (unlikely(pthread_mutex_unlock(&ctx->db_requests.list[i].requests_lock)))
 				panic("pthread_mutex_unlock");
 		}
-
-		pfcq_sleep(ctx->db_gc_interval);
 	}
+
+lfree:
+	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, ctx->gc_eventfd, &epoll_event) == -1))
+		panic("epoll_ctl");
+	if (unlikely(close(ctx->gc_eventfd) == -1))
+		panic("close");
 
 	pfpthq_dec(ctx->gc_pool);
 
@@ -103,8 +138,9 @@ struct db_global_context* db_global_context_load(const char* _config_file)
 		stop("Are you OK?");
 	}
 
-	ret->db_gc_interval = ((uint64_t)iniparser_getint(config, DB_CONFIG_GC_INTERVAL_KEY, DB_DEFAULT_GC_INTERVAL)) * 1000000ULL;
+	ret->db_gc_interval = iniparser_getint(config, DB_CONFIG_GC_INTERVAL_KEY, DB_DEFAULT_GC_INTERVAL);
 	ret->gc_pool = pfpthq_init("gc", 1);
+	ret->gc_eventfd = eventfd(0, 0);
 	pfpthq_inc(ret->gc_pool, &ret->gc_id, "gc", db_gc, (void*)ret);
 
 	iniparser_freedict(config);
@@ -114,6 +150,8 @@ struct db_global_context* db_global_context_load(const char* _config_file)
 
 void db_global_context_unload(struct db_global_context* _g_ctx)
 {
+	if (unlikely(eventfd_write(_g_ctx->gc_eventfd, 1) == -1))
+		panic("eventfd_write");
 	pfpthq_wait(_g_ctx->gc_pool);
 	pfpthq_done(_g_ctx->gc_pool);
 

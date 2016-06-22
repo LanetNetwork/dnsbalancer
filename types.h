@@ -238,6 +238,7 @@ struct db_global_context
 	pfpthq_pool_t* gc_pool;
 	pthread_t gc_id;
 	uint64_t db_gc_interval;
+	int gc_eventfd;
 };
 
 struct db_latency_stats
