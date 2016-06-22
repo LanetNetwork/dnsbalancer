@@ -49,6 +49,8 @@ static void __version(void)
 	inform("%s v%s\n", APP_NAME, APP_VERSION);
 	inform("© %s, %s\n", APP_YEAR, APP_HOLDER);
 	inform("Programmed by %s <%s>\n", APP_PROGRAMMER, APP_EMAIL);
+	inform("%s\n", "Distributed under terms and conditions of GPLv3.");
+	inform("%s\n", "See COPYING file for details.");
 }
 
 static void sigall_handler(int _signo)
@@ -104,7 +106,7 @@ int main(int argc, char** argv, char** envp)
 	pfcq_zero(&db_newmask, sizeof(sigset_t));
 	pfcq_zero(&db_oldmask, sizeof(sigset_t));
 
-	while ((opts = getopt_long(argc, argv, "abcdef", longopts, NULL)) != -1)
+	while ((opts = getopt_long(argc, argv, "abcdefgh", longopts, NULL)) != -1)
 		switch (opts)
 		{
 			case 'a':
