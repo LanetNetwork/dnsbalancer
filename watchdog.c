@@ -19,13 +19,12 @@
  */
 
 #include <signal.h>
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
 
 #include "request.h"
 
 #include "watchdog.h"
-
-extern volatile sig_atomic_t should_exit;
-extern volatile sig_atomic_t should_reload;
 
 int db_ping_forwarder(struct db_forwarder* _forwarder)
 {
@@ -122,13 +121,22 @@ out:
 
 void* db_watchdog(void* _data)
 {
+	int epoll_fd = -1;
+	struct epoll_event epoll_event;
+	struct epoll_event epoll_events[EPOLL_MAXEVENTS];
+
 	struct db_local_context* ctx = _data;
+
+	epoll_fd = epoll_create1(0);
+	if (unlikely(epoll_fd == -1))
+		panic("epoll_create");
+	epoll_event.data.fd = ctx->watchdog_eventfd;
+	epoll_event.events = EPOLLIN;
+	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, ctx->watchdog_eventfd, &epoll_event) == -1))
+		panic("epoll_ctl");
 
 	for (;;)
 	{
-		if (unlikely(should_exit || should_reload))
-			break;
-
 		// Watchdog
 		for (size_t i = 0; i < ctx->frontends_count; i++)
 			for (size_t j = 0; j < ctx->frontends[i]->backend.forwarders_count; j++)
@@ -152,8 +160,36 @@ void* db_watchdog(void* _data)
 					ctx->frontends[i]->backend.forwarders[j]->alive = 1;
 				}
 			}
-		pfcq_sleep(ctx->db_watchdog_interval);
+
+		int epoll_count = epoll_wait(epoll_fd, epoll_events, EPOLL_MAXEVENTS, ctx->db_watchdog_interval);
+		if (unlikely(epoll_count == -1))
+		{
+			// Ignore errors
+			continue;
+		} else
+		{
+			for (int i = 0; i < epoll_count; i++)
+			{
+				if (unlikely((epoll_events[i].events & EPOLLERR) ||
+							(epoll_events[i].events & EPOLLHUP) ||
+							!(epoll_events[i].events & EPOLLIN)))
+				{
+					// Ignore hangup
+					continue;
+				} else if (likely(epoll_events[i].data.fd == ctx->watchdog_eventfd))
+				{
+					// Shutdown
+					goto lfree;
+				}
+			}
+		}
 	}
+
+lfree:
+	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, ctx->watchdog_eventfd, &epoll_event) == -1))
+		panic("epoll_ctl");
+	if (unlikely(close(ctx->watchdog_eventfd) == -1))
+		panic("close");
 
 	pfpthq_dec(ctx->watchdog_pool);
 

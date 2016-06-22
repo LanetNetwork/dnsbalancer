@@ -254,6 +254,7 @@ struct db_local_context
 	pfpthq_pool_t* watchdog_pool;
 	pthread_t watchdog_id;
 	uint64_t db_watchdog_interval;
+	int watchdog_eventfd;
 	unsigned short int stats_enabled;
 	sa_family_t stats_layer3_family;
 	pfcq_net_address_t stats_address;

@@ -48,7 +48,7 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 
 	ret = pfcq_alloc(sizeof(struct db_local_context));
 
-	ret->db_watchdog_interval = ((uint64_t)iniparser_getint(config, DB_CONFIG_WATCHDOG_INTERVAL_KEY, DB_DEFAULT_WATCHDOG_INTERVAL)) * 1000000ULL;
+	ret->db_watchdog_interval = iniparser_getint(config, DB_CONFIG_WATCHDOG_INTERVAL_KEY, DB_DEFAULT_WATCHDOG_INTERVAL);
 
 	ret->stats_enabled = (unsigned short int)iniparser_getint(config, DB_CONFIG_STATS_ENABLED_KEY, 0);
 
@@ -367,6 +367,7 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 	iniparser_freedict(config);
 
 	ret->watchdog_pool = pfpthq_init("watchdog", 1);
+	ret->watchdog_eventfd = eventfd(0, 0);
 	pfpthq_inc(ret->watchdog_pool, &ret->watchdog_id, "watchdog", db_watchdog, (void*)ret);
 
 	for (size_t i = 0; i < ret->frontends_count; i++)
@@ -442,6 +443,8 @@ void db_local_context_unload(struct db_local_context* _l_ctx)
 		pfcq_free(_l_ctx->frontends[i]);
 	pfcq_free(_l_ctx->frontends);
 
+	if (unlikely(eventfd_write(_l_ctx->watchdog_eventfd, 1) == -1))
+		panic("eventfd_write");
 	pfpthq_wait(_l_ctx->watchdog_pool);
 	pfpthq_done(_l_ctx->watchdog_pool);
 
