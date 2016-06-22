@@ -75,6 +75,8 @@ int main(int argc, char** argv, char** envp)
 {
 	struct db_global_context* g_ctx = NULL;
 	struct db_local_context* l_ctx = NULL;
+	struct db_global_context* old_g_ctx = NULL;
+	struct db_local_context* old_l_ctx = NULL;
 	int opts = 0;
 	int daemonize = 0;
 	int be_verbose = 0;
@@ -183,10 +185,21 @@ int main(int argc, char** argv, char** envp)
 
 	for (;;)
 	{
+		old_g_ctx = g_ctx;
+		old_l_ctx = l_ctx;
+
 		g_ctx = db_global_context_load(config_file);
 		l_ctx = db_local_context_load(config_file, g_ctx);
 
 		setproctitle("Serving %lu frontend(s)", l_ctx->frontends_count);
+
+		if (old_g_ctx && old_l_ctx)
+		{
+			db_stats_done(old_l_ctx);
+
+			db_local_context_unload(old_l_ctx);
+			db_global_context_unload(old_g_ctx);
+		}
 
 		db_stats_init(l_ctx);
 
@@ -194,21 +207,23 @@ int main(int argc, char** argv, char** envp)
 			sigsuspend(&db_oldmask);
 
 		if (should_exit)
+		{
 			verbose("%s\n", "Exit gracefully...");
 
+			db_stats_done(l_ctx);
+
+			db_local_context_unload(l_ctx);
+			db_global_context_unload(g_ctx);
+
+			break;
+		}
+
 		if (should_reload)
+		{
 			verbose("%s\n", "Reload gracefully...");
 
-		db_stats_done(l_ctx);
-
-		db_local_context_unload(l_ctx);
-		db_global_context_unload(g_ctx);
-
-		if (should_exit)
-			break;
-
-		if (should_reload)
 			should_reload = 0;
+		}
 	}
 
 	if (unlikely(pthread_sigmask(SIG_UNBLOCK, &db_newmask, NULL) != 0))
