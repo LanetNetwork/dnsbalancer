@@ -36,8 +36,8 @@
 
 #include "dnsbalancer.h"
 
-volatile sig_atomic_t should_exit = 0;
-volatile sig_atomic_t should_reload = 0;
+static volatile sig_atomic_t should_exit = 0;
+static volatile sig_atomic_t should_reload = 0;
 
 static void __usage(char* _argv0)
 {
