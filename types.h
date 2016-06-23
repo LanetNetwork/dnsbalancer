@@ -213,6 +213,8 @@ struct db_request_list
 	uint16_t list_index;
 	pthread_spinlock_t list_index_lock;
 	uint64_t ttl;
+	size_t requests_count;
+	pthread_spinlock_t requests_count_lock;
 };
 
 struct db_frontend
@@ -249,6 +251,7 @@ struct db_latency_stats
 
 struct db_local_context
 {
+	struct db_global_context* global_context;
 	struct db_frontend** frontends;
 	size_t frontends_count;
 	pfpthq_pool_t* watchdog_pool;

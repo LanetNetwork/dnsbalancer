@@ -48,6 +48,8 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 
 	ret = pfcq_alloc(sizeof(struct db_local_context));
 
+	ret->global_context = _g_ctx;
+
 	ret->db_watchdog_interval = iniparser_getint(config, DB_CONFIG_WATCHDOG_INTERVAL_KEY, DB_DEFAULT_WATCHDOG_INTERVAL);
 
 	ret->stats_enabled = (unsigned short int)iniparser_getint(config, DB_CONFIG_STATS_ENABLED_KEY, 0);

@@ -96,6 +96,12 @@ uint16_t db_insert_request(struct db_request_list* _list, struct db_request* _re
 	if (unlikely(pthread_mutex_unlock(&_list->list[index].requests_lock)))
 		panic("pthread_mutex_unlock");
 
+	if (unlikely(pthread_spin_lock(&_list->requests_count_lock)))
+		panic("pthread_spin_lock");
+	_list->requests_count++;
+	if (unlikely(pthread_spin_unlock(&_list->requests_count_lock)))
+		panic("pthread_spin_unlock");
+
 	return index;
 }
 
@@ -118,6 +124,11 @@ struct db_request* db_eject_request(struct db_request_list* _list, uint16_t _ind
 	{
 		TAILQ_REMOVE(&_list->list[_index].requests, ret, tailq);
 		_list->list[_index].requests_count--;
+		if (unlikely(pthread_spin_lock(&_list->requests_count_lock)))
+			panic("pthread_spin_lock");
+		_list->requests_count--;
+		if (unlikely(pthread_spin_unlock(&_list->requests_count_lock)))
+			panic("pthread_spin_unlock");
 	}
 
 	if (unlikely(pthread_mutex_unlock(&_list->list[_index].requests_lock)))
@@ -131,6 +142,11 @@ void db_remove_request_unsafe(struct db_request_list* _list, uint16_t _index, st
 	TAILQ_REMOVE(&_list->list[_index].requests, _request, tailq);
 	pfcq_free(_request);
 	_list->list[_index].requests_count--;
+	if (unlikely(pthread_spin_lock(&_list->requests_count_lock)))
+		panic("pthread_spin_lock");
+	_list->requests_count--;
+	if (unlikely(pthread_spin_unlock(&_list->requests_count_lock)))
+		panic("pthread_spin_unlock");
 
 	return;
 }

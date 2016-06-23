@@ -133,6 +133,9 @@ struct db_global_context* db_global_context_load(const char* _config_file)
 			panic("pthread_mutex_init");
 		TAILQ_INIT(&ret->db_requests.list[i].requests);
 	}
+	ret->db_requests.requests_count = 0;
+	if (unlikely(pthread_spin_init(&ret->db_requests.requests_count_lock, PTHREAD_PROCESS_PRIVATE)))
+		panic("pthread_spin_init");
 
 	ret->db_requests.ttl = ((uint64_t)iniparser_getint(config, DB_CONFIG_REQUEST_TTL_KEY, DB_DEFAULT_REQUEST_TTL)) * 1000000ULL;
 	if (unlikely(ret->db_requests.ttl > INT64_MAX))
@@ -173,6 +176,9 @@ void db_global_context_unload(struct db_global_context* _g_ctx)
 	pfcq_zero(_g_ctx->db_requests.list, UINT16_MAX * sizeof(struct db_request_bucket));
 	_g_ctx->db_requests.list_index = 0;
 	if (unlikely(pthread_spin_destroy(&_g_ctx->db_requests.list_index_lock)))
+		panic("pthread_spin_destroy");
+	_g_ctx->db_requests.requests_count = 0;
+	if (unlikely(pthread_spin_destroy(&_g_ctx->db_requests.requests_count_lock)))
 		panic("pthread_spin_destroy");
 
 	pfcq_free(_g_ctx);

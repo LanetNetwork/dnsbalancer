@@ -279,6 +279,17 @@ static int db_answer_to_connection(void* _data,
 		pfcq_free(max_row);
 
 		goto noerror;
+	} else if (strcmp(_url, "/queue") == 0)
+	{
+		size_t requests_count = 0;
+		if (unlikely(pthread_spin_lock(&l_ctx->global_context->db_requests.requests_count_lock)))
+			panic("pthread_spin_lock");
+		requests_count = l_ctx->global_context->db_requests.requests_count;
+		if (unlikely(pthread_spin_unlock(&l_ctx->global_context->db_requests.requests_count_lock)))
+			panic("pthread_spin_unlock");
+		body = pfcq_mstring("%lu", requests_count);
+
+		goto noerror;
 	} else if (strcmp(_url, "/ping") == 0)
 	{
 		body = pfcq_strdup("OK");
