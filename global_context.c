@@ -41,6 +41,9 @@ static void* db_gc(void* _data)
 		return NULL;
 	struct db_global_context* ctx = _data;
 
+	pfcq_zero(&epoll_event, sizeof(struct epoll_event));
+	pfcq_zero(&epoll_events, EPOLL_MAXEVENTS * sizeof(struct epoll_event));
+
 	epoll_fd = epoll_create1(0);
 	if (unlikely(epoll_fd == -1))
 		panic("epoll_create");
@@ -141,6 +144,8 @@ struct db_global_context* db_global_context_load(const char* _config_file)
 	ret->db_gc_interval = iniparser_getint(config, DB_CONFIG_GC_INTERVAL_KEY, DB_DEFAULT_GC_INTERVAL);
 	ret->gc_pool = pfpthq_init("gc", 1);
 	ret->gc_eventfd = eventfd(0, 0);
+	if (unlikely(ret->gc_eventfd == -1))
+		panic("eventfd");
 	pfpthq_inc(ret->gc_pool, &ret->gc_id, "gc", db_gc, (void*)ret);
 
 	iniparser_freedict(config);

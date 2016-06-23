@@ -368,6 +368,8 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 
 	ret->watchdog_pool = pfpthq_init("watchdog", 1);
 	ret->watchdog_eventfd = eventfd(0, 0);
+	if (unlikely(ret->watchdog_eventfd == -1))
+		panic("eventfd");
 	pfpthq_inc(ret->watchdog_pool, &ret->watchdog_id, "watchdog", db_watchdog, (void*)ret);
 
 	for (size_t i = 0; i < ret->frontends_count; i++)
@@ -386,6 +388,8 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 			struct db_worker* new_worker = pfcq_alloc(sizeof(struct db_worker));
 			new_worker->frontend = ret->frontends[i];
 			new_worker->eventfd = eventfd(0, 0);
+			if (unlikely(new_worker->eventfd == -1))
+				panic("eventfd");
 			ret->frontends[i]->workers[j] = new_worker;
 			pfpthq_inc(ret->frontends[i]->workers_pool, &new_worker->id, ret->frontends[i]->name, db_worker, new_worker);
 		}

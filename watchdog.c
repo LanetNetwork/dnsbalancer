@@ -127,6 +127,9 @@ void* db_watchdog(void* _data)
 
 	struct db_local_context* ctx = _data;
 
+	pfcq_zero(&epoll_event, sizeof(struct epoll_event));
+	pfcq_zero(&epoll_events, EPOLL_MAXEVENTS * sizeof(struct epoll_event));
+
 	epoll_fd = epoll_create1(0);
 	if (unlikely(epoll_fd == -1))
 		panic("epoll_create");
