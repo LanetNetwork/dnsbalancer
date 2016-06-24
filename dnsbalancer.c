@@ -206,7 +206,6 @@ int main(int argc, char** argv, char** envp)
 			db_global_context_unload(old_g_ctx);
 		}
 
-
 		while (likely(!should_exit && !should_reload))
 			sigsuspend(&db_oldmask);
 
