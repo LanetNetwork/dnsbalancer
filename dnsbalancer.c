@@ -196,14 +196,16 @@ int main(int argc, char** argv, char** envp)
 		setproctitle("Serving %lu frontend(s)", l_ctx->frontends_count);
 
 		if (old_g_ctx && old_l_ctx)
-		{
 			db_stats_done(old_l_ctx);
 
+		db_stats_init(l_ctx);
+
+		if (old_g_ctx && old_l_ctx)
+		{
 			db_local_context_unload(old_l_ctx);
 			db_global_context_unload(old_g_ctx);
 		}
 
-		db_stats_init(l_ctx);
 
 		while (likely(!should_exit && !should_reload))
 			sigsuspend(&db_oldmask);
