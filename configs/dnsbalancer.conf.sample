@@ -4,6 +4,7 @@ frontends=fe_dns
 request_ttl=10000
 gc_interval=1000
 watchdog_interval=1000
+reload_retry=500
 
 [stats]
 enabled=1
