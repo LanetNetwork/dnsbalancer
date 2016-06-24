@@ -56,6 +56,7 @@
 #define DB_CONFIG_ACL_ACTION_SET_A			"set_a"
 #define DB_CONFIG_ACL_SOURCE_LOCAL			"local"
 #define DB_CONFIG_ACL_SOURCE_MYSQL			"mysql"
+#define DB_CONFIG_RELOAD_RETRY_KEY			"reload_retry"
 #define DB_DEFAULT_RLIMIT					32768
 #define DB_DEFAULT_REQUEST_TTL				10000
 #define DB_DEFAULT_GC_INTERVAL				1000
@@ -67,6 +68,7 @@
 #define DB_DEFAULT_FORWARDER_CHECK_TIMEOUT	500
 #define DB_DEFAULT_WEIGHT					1
 #define DB_LATENCY_BUCKETS					25
+#define DB_DEFAULT_RELOAD_RETRY				500
 
 #endif /* __DEFINES_H__ */
 

@@ -50,6 +50,7 @@ rlimit=32768
 request_ttl=10000
 gc_interval=1000
 watchdog_interval=1000
+reload_retry=500
 frontends=fe_dns
 
 [stats]
@@ -107,7 +108,9 @@ in eliminating RAM usage but also in query drops;
 thread that does cleaning up request table for orphaned (stalled) items (DNS requests that are lost
 by underlying forwarders); if balancer should serve very high load, you may try to increase this value;
 * `watchdog_interval` specifies watchdog invocation interval in milliseconds; it is a timer
-thread that does polling forwarders.
+thread that does polling forwarders;
+* `reload_retry` is a timeout for another attempt for worker to exit in case of some requests are
+still queued and waiting for forwarder response.
 
 `stats` section holds statistics options:
 
@@ -261,6 +264,10 @@ The following arguments are supported:
 Typical usage:
 
 `dnsbalancer --config=/etc/dnsbalancer/dnsbalancer.conf --verbose --syslog`
+
+One may reload dnsbalancer without restarting the whole daemon by sending SIGUSR1 to main PID. In this
+case new workers will be spawned serving new workload, and the workload in progress will be afterserved
+by old workers with no loss.
 
 Distribution and Contribution
 -----------------------------

@@ -241,6 +241,7 @@ struct db_global_context
 	pthread_t gc_id;
 	uint64_t db_gc_interval;
 	int gc_eventfd;
+	uint64_t reload_retry;
 };
 
 struct db_latency_stats

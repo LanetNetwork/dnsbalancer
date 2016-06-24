@@ -144,6 +144,13 @@ struct db_global_context* db_global_context_load(const char* _config_file)
 		stop("Are you OK?");
 	}
 
+	ret->reload_retry = iniparser_getint(config, DB_CONFIG_RELOAD_RETRY_KEY, DB_DEFAULT_RELOAD_RETRY);
+	if (unlikely(ret->reload_retry > INT64_MAX))
+	{
+		inform("Reload retry timeout must not exceed %ld ms.\n", INT64_MAX);
+		stop("Are you OK?");
+	}
+
 	ret->db_gc_interval = iniparser_getint(config, DB_CONFIG_GC_INTERVAL_KEY, DB_DEFAULT_GC_INTERVAL);
 	ret->gc_pool = pfpthq_init("gc", 1);
 	ret->gc_eventfd = eventfd(0, 0);

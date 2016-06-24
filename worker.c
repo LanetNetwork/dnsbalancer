@@ -19,6 +19,7 @@
  */
 
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 
 #include "acl.h"
 #include "request.h"
@@ -126,13 +127,29 @@ void* db_worker(void* _data)
 			panic("epoll_ctl");
 	}
 
+	int epoll_timeout = -1;
 	for (;;)
 	{
-		epoll_count = epoll_wait(epoll_fd, epoll_events, EPOLL_MAXEVENTS, -1);
+		epoll_count = epoll_wait(epoll_fd, epoll_events, EPOLL_MAXEVENTS, epoll_timeout);
 		if (unlikely(epoll_count == -1))
 		{
 			// Ignore errors
 			continue;
+		} else if (unlikely(epoll_count == 0))
+		{
+			// Shutdown
+			size_t requests_count = 0;
+			if (unlikely(pthread_spin_lock(&frontend->g_ctx->db_requests.requests_count_lock)))
+				panic("pthread_spin_lock");
+			requests_count = frontend->g_ctx->db_requests.requests_count;
+			if (unlikely(pthread_spin_unlock(&frontend->g_ctx->db_requests.requests_count_lock)))
+				panic("pthread_spin_unlock");
+
+			if (likely(requests_count > 0))
+			{
+				continue;
+			} else
+				goto lfree;
 		} else
 		{
 			for (int i = 0; i < epoll_count; i++)
@@ -145,8 +162,20 @@ void* db_worker(void* _data)
 					continue;
 				} else if (unlikely(epoll_events[i].data.fd == data->eventfd))
 				{
-					// Shutdown
-					goto lfree;
+					// Consume sent value
+					__attribute__((unused)) eventfd_t value;
+					eventfd_read(data->eventfd, &value);
+
+					// Stop receiving new requests
+					if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, server, &epoll_event) == -1))
+						panic("epoll_ctl");
+					if (unlikely(close(server) == -1))
+						panic("close");
+
+					// But serve remaining requests
+					epoll_timeout = frontend->g_ctx->reload_retry;
+
+					continue;
 				} else if (likely(epoll_events[i].data.fd == server))
 				{
 					// Accept request from client
@@ -423,11 +452,6 @@ lfree:
 	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, data->eventfd, &epoll_event) == -1))
 		panic("epoll_ctl");
 	if (unlikely(close(data->eventfd) == -1))
-		panic("close");
-
-	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, server, &epoll_event) == -1))
-		panic("epoll_ctl");
-	if (unlikely(close(server) == -1))
 		panic("close");
 
 	for (size_t i = 0; i < frontend->backend.forwarders_count; i++)

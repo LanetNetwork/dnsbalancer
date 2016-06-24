@@ -7,6 +7,7 @@ Type=forking
 PrivateTmp=true
 PIDFile=/run/dnsbalancer.pid
 ExecStart=/usr/bin/dnsbalancer --config=/etc/dnsbalancer/dnsbalancer.conf --pid-file=/run/dnsbalancer.pid --daemonize --syslog
+ExecReload=/usr/bin/kill -USR1 $MAINPID
 Restart=always
 
 [Install]
