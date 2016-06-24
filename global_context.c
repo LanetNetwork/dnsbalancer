@@ -101,7 +101,7 @@ static void* db_gc(void* _data)
 	}
 
 lfree:
-	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, ctx->gc_eventfd, &epoll_event) == -1))
+	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, ctx->gc_eventfd, NULL) == -1))
 		panic("epoll_ctl");
 	if (unlikely(close(ctx->gc_eventfd) == -1))
 		panic("close");

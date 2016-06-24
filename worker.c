@@ -166,13 +166,13 @@ void* db_worker(void* _data)
 					__attribute__((unused)) eventfd_t value;
 					eventfd_read(data->eventfd, &value);
 
-					if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, data->eventfd, &epoll_event) == -1))
+					if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, data->eventfd, NULL) == -1))
 						panic("epoll_ctl");
 					if (unlikely(close(data->eventfd) == -1))
 						panic("close");
 
 					// Stop receiving new requests
-					if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, server, &epoll_event) == -1))
+					if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, server, NULL) == -1))
 						panic("epoll_ctl");
 					if (unlikely(close(server) == -1))
 						panic("close");
@@ -458,7 +458,7 @@ lfree:
 	{
 		epoll_event.data.fd = forwarders[i];
 		epoll_event.events = EPOLLIN;
-		if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, forwarders[i], &epoll_event) == -1))
+		if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, forwarders[i], NULL) == -1))
 			panic("epoll_ctl");
 		if (unlikely(close(forwarders[i]) == -1))
 			panic("close");

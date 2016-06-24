@@ -189,7 +189,7 @@ void* db_watchdog(void* _data)
 	}
 
 lfree:
-	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, ctx->watchdog_eventfd, &epoll_event) == -1))
+	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, ctx->watchdog_eventfd, NULL) == -1))
 		panic("epoll_ctl");
 	if (unlikely(close(ctx->watchdog_eventfd) == -1))
 		panic("close");
