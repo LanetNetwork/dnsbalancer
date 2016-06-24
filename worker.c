@@ -166,6 +166,11 @@ void* db_worker(void* _data)
 					__attribute__((unused)) eventfd_t value;
 					eventfd_read(data->eventfd, &value);
 
+					if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, data->eventfd, &epoll_event) == -1))
+						panic("epoll_ctl");
+					if (unlikely(close(data->eventfd) == -1))
+						panic("close");
+
 					// Stop receiving new requests
 					if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, server, &epoll_event) == -1))
 						panic("epoll_ctl");
@@ -448,11 +453,6 @@ void* db_worker(void* _data)
 
 lfree:
 	verbose("Exiting worker %#lx...\n", data->id);
-
-	if (unlikely(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, data->eventfd, &epoll_event) == -1))
-		panic("epoll_ctl");
-	if (unlikely(close(data->eventfd) == -1))
-		panic("close");
 
 	for (size_t i = 0; i < frontend->backend.forwarders_count; i++)
 	{
