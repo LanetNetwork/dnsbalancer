@@ -13,3 +13,7 @@ set(CMAKE_C_FLAGS
 set(CMAKE_C_FLAGS_DEBUG "-O1 -g -ggdb -pg -mtune=generic -D_FORTIFY_SOURCE=2 -fstack-protector-all -DMODE_DEBUG")
 set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -mtune=native -D_FORTIFY_SOURCE=1 -fstack-protector-strong -DMODE_NORMAL")
 
+if ("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -w3 -wd2102 -wd2552")
+endif ("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")
+
