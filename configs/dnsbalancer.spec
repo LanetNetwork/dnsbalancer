@@ -1,14 +1,16 @@
 Name:           dnsbalancer
 Version:        0.0.1
-Release:        4%{?dist}
+Release:        8%{?dist}
 Summary:        Daemon to balance UDP DNS requests over DNS servers
 
 License:        GPLv3
 URL:            https://github.com/LanetNetwork/dnsbalancer
 Source0:        dnsbalancer-0.0.1.tar.gz
 
-BuildRequires:  gcc cmake make libbsd-devel ldns-devel libmicrohttpd-devel openssl-devel gperftools-devel libunwind-devel
-Requires:       libbsd ldns libmicrohttpd openssl gperftools-devel libunwind
+BuildRequires:   gcc cmake make libbsd-devel ldns-devel libmicrohttpd-devel openssl-devel gperftools-devel libunwind-devel
+Requires:        libbsd ldns libmicrohttpd openssl gperftools-devel libunwind
+Requires(post):  systemd-units
+Requires(preun): systemd-units
 
 %description
 Daemon to balance UDP DNS requests over DNS servers
@@ -19,22 +21,30 @@ Daemon to balance UDP DNS requests over DNS servers
 %build
 mkdir build
 cd build
-cmake -DCMAKE_INSTALL_PREFIX=%{buildroot}/usr ..
+cmake -DCMAKE_INSTALL_PREFIX=%{buildroot}%{_prefix} ..
 make %{?_smp_mflags}
 
 %install
 rm -rf %{buildroot}
-%{__mkdir_p} %{buildroot}/etc/%{name}
-%{__mkdir_p} %{buildroot}/usr/lib/systemd/system/
-%{__install} -m0644 configs/%{name}.conf.sample %{buildroot}/etc/%{name}
-%{__install} -m0644 configs/%{name}.service %{buildroot}/usr/lib/systemd/system/%{name}.service
+%{__install} -D -m0644 configs/%{name}.conf.sample %{buildroot}%{_sysconfdir}/%{name}/%{name}.conf.sample
+%{__install} -D -m0644 configs/%{name}.service %{buildroot}%{_unitdir}/%{name}.service
 cd build
 make install
 
+%clean
+rm -rf %{buildroot}
+
+%post
+%systemd_post %{name}.service
+
+%preun
+%systemd_preun %{name}.service
+
 %files
+%defattr(0644, root, root, 0755)
 %doc COPYING README.md
-/usr/bin/%{name}
-/etc/%{name}/%{name}.conf.sample
-/usr/lib/systemd/system/%{name}.service
+%attr(0755, root, root) %{_bindir}/%{name}
+%{_sysconfdir}/%{name}/%{name}.conf.sample
+%{_unitdir}/%{name}.service
 
 %changelog
