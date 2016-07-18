@@ -402,6 +402,11 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 
 void db_local_context_unload(struct db_local_context* _l_ctx)
 {
+	if (unlikely(eventfd_write(_l_ctx->watchdog_eventfd, 1) == -1))
+		panic("eventfd_write");
+	pfpthq_wait(_l_ctx->watchdog_pool);
+	pfpthq_done(_l_ctx->watchdog_pool);
+
 	for (size_t i = 0; i < _l_ctx->frontends_count; i++)
 	{
 		for (int j = 0; j < _l_ctx->frontends[i]->workers_count; j++)
@@ -448,11 +453,6 @@ void db_local_context_unload(struct db_local_context* _l_ctx)
 	for (size_t i = 0; i < _l_ctx->frontends_count; i++)
 		pfcq_free(_l_ctx->frontends[i]);
 	pfcq_free(_l_ctx->frontends);
-
-	if (unlikely(eventfd_write(_l_ctx->watchdog_eventfd, 1) == -1))
-		panic("eventfd_write");
-	pfpthq_wait(_l_ctx->watchdog_pool);
-	pfpthq_done(_l_ctx->watchdog_pool);
 
 	pfcq_free(_l_ctx);
 
