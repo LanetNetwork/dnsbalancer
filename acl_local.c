@@ -207,7 +207,7 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 			pfcq_free(acl_item_expr_p);
 			continue;
 		}
-		const char** list_items = pfcq_alloc(acl_items_count * sizeof(char*));
+		const char** list_items = pfcq_alloc(list_items_count * sizeof(char*));
 		iniparser_getseckeys(_config, acl_item_list, list_items);
 		TAILQ_INIT(&new_acl_item->list);
 		for (int j = 0; j < list_items_count; j++)
