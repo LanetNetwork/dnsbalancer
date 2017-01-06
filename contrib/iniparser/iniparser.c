@@ -116,7 +116,7 @@ static unsigned strstrip(char *s)
   @brief    Default error callback for iniparser: wraps `fprintf(stderr, ...)`.
  */
 /*--------------------------------------------------------------------------*/
-static int default_error_callback(const char *format, ...)
+static int __attribute__((format(printf, 1, 2))) default_error_callback(const char *format, ...)
 {
 	int ret;
 	va_list argptr;
