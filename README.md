@@ -280,6 +280,6 @@ xxHash is licensed under terms and conditions of BSD 2-Clause License.
 
 The following people are involved in development:
 
-* Oleksandr Natalenko &lt;o.natalenko@lanet.ua&gt;
+* Oleksandr Natalenko &lt;oleksandr@natalenko.name&gt;
 
 Mail them any suggestions, bugreports and comments.
