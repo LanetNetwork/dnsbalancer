@@ -348,7 +348,7 @@ void db_stats_init(struct db_local_context* _ctx)
 
 	if (_ctx->stats_enabled)
 	{
-		unsigned int options = MHD_USE_SELECT_INTERNALLY | MHD_USE_EPOLL_LINUX_ONLY;
+		unsigned int options = MHD_USE_EPOLL_INTERNALLY;
 		switch (_ctx->stats_layer3_family)
 		{
 			case PF_INET:
