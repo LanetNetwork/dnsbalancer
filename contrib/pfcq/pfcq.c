@@ -305,10 +305,10 @@ uint64_t pfcq_mbytes(const char* _human_readable)
 	expression = pfcq_cstring(expression, ")$");
 
 	if (unlikely(regcomp(&regex, expression, REG_EXTENDED)))
-		return ret;
+		goto err_free_expression;
 
 	if (unlikely(regexec(&regex, _human_readable, 3, matches, 0)))
-		return ret;
+		goto err_free_expression;
 
 	regfree(&regex);
 
@@ -332,6 +332,7 @@ uint64_t pfcq_mbytes(const char* _human_readable)
 
 	pfcq_free(value);
 	pfcq_free(units);
+err_free_expression:
 	pfcq_free(expression);
 
 	return ret;
