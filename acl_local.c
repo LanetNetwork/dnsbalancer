@@ -24,21 +24,27 @@
 
 #include "acl_local.h"
 
-void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl* _acl)
+void db_acl_local_load(struct collection_item* _config, const char* _acl_name, struct db_acl* _acl)
 {
-	int acl_items_count = iniparser_getsecnkeys(_config, _acl_name);
+	int acl_items_count = 0;
+	char** acl_items = NULL;
+
+	acl_items = get_attribute_list(_config, _acl_name, &acl_items_count, NULL);
 	if (unlikely(acl_items_count < 1))
 	{
 		inform("No ACL %s found in config file\n", _acl_name);
 		return;
 	}
-	// IniParser 4 do not use internal malloc for iniparser_getseckeys anymore.
-	const char** acl_items = pfcq_alloc(acl_items_count * sizeof(char*));
-	iniparser_getseckeys(_config, _acl_name, acl_items);
 	TAILQ_INIT(_acl);
 	for (int i = 0; i < acl_items_count; i++)
 	{
-		const char* acl_item_expr = iniparser_getstring(_config, acl_items[i], NULL);
+		struct collection_item* acl_item = NULL;
+		if (unlikely(get_config_item(_acl_name, acl_items[i], _config, &acl_item)))
+		{
+			inform("ACL: %s, key: %s\n", _acl_name, acl_items[i]);
+			stop("Unable to get value from config file");
+		}
+		const char* acl_item_expr = get_const_string_config_value(acl_item, NULL);
 		char* acl_item_expr_i = pfcq_strdup(acl_item_expr);
 		char* acl_item_expr_p = acl_item_expr_i;
 
@@ -199,7 +205,10 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 			continue;
 		}
 
-		int list_items_count = iniparser_getsecnkeys(_config, acl_item_list);
+		int list_items_count = 0;
+		char** list_items = NULL;
+
+		list_items = get_attribute_list(_config, acl_item_list, &list_items_count, NULL);
 		if (unlikely(list_items_count < 1))
 		{
 			inform("ACL: %s, list: %s, no list found in config file\n", _acl_name, acl_item_list);
@@ -207,12 +216,16 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 			pfcq_free(acl_item_expr_p);
 			continue;
 		}
-		const char** list_items = pfcq_alloc(list_items_count * sizeof(char*));
-		iniparser_getseckeys(_config, acl_item_list, list_items);
 		TAILQ_INIT(&new_acl_item->list);
 		for (int j = 0; j < list_items_count; j++)
 		{
-			const char* list_item = iniparser_getstring(_config, list_items[j], NULL);
+			struct collection_item* acl_list_item = NULL;
+			if (unlikely(get_config_item(acl_item_list, list_items[j], _config, &acl_list_item)))
+			{
+				inform("ACL item: %s, key: %s\n", acl_item_list, list_items[j]);
+				stop("Unable to get value from config file");
+			}
+			const char* list_item = get_const_string_config_value(acl_list_item, NULL);
 			char* list_item_i = pfcq_strdup(list_item);
 			char* list_item_p = list_item_i;
 
@@ -276,14 +289,14 @@ void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl
 			}
 			TAILQ_INSERT_TAIL(&new_acl_item->list, new_list_item, tailq);
 		}
-		pfcq_free(list_items);
+		free_attribute_list(list_items);
 
 		TAILQ_INSERT_TAIL(_acl, new_acl_item, tailq);
 
 		pfcq_free(acl_item_expr_p);
 	}
 
-	pfcq_free(acl_items);
+	free_attribute_list(acl_items);
 
 	return;
 }
