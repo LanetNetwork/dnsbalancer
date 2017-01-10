@@ -23,10 +23,14 @@
 #ifndef __DEFINES_H__
 #define __DEFINES_H__
 
+#define APP_NAME							"dnsbalancer"
+
 #define DB_HASH_SEED						(0xda9d9374347ffd15)
 
-#define DB_CONFIG_REQUEST_TTL_KEY			"general:request_ttl"
-#define DB_CONFIG_GC_INTERVAL_KEY			"general:gc_interval"
+#define DB_CONFIG_GENERAL_SECTION			"general"
+#define DB_CONFIG_REQUEST_TTL_KEY			"request_ttl"
+#define DB_CONFIG_RELOAD_RETRY_KEY			"reload_retry"
+#define DB_CONFIG_GC_INTERVAL_KEY			"gc_interval"
 #define DB_CONFIG_WATCHDOG_INTERVAL_KEY		"general:watchdog_interval"
 #define DB_CONFIG_STATS_ENABLED_KEY			"stats:enabled"
 #define DB_CONFIG_STATS_LAYER3_KEY			"stats:layer3"
@@ -56,7 +60,6 @@
 #define DB_CONFIG_ACL_ACTION_SET_A			"set_a"
 #define DB_CONFIG_ACL_SOURCE_LOCAL			"local"
 #define DB_CONFIG_ACL_SOURCE_MYSQL			"mysql"
-#define DB_CONFIG_RELOAD_RETRY_KEY			"reload_retry"
 #define DB_DEFAULT_RLIMIT					32768
 #define DB_DEFAULT_REQUEST_TTL				10000
 #define DB_DEFAULT_GC_INTERVAL				1000

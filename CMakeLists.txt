@@ -5,6 +5,7 @@ include(generic)
 
 include(FindPkgConfig)
 if (PKG_CONFIG_FOUND)
+	pkg_check_modules(LIBINI_CONFIG REQUIRED ini_config)
 	pkg_check_modules(LIBMICROHTTPD REQUIRED libmicrohttpd)
 	pkg_check_modules(LIBBSD REQUIRED libbsd)
 	pkg_check_modules(LIBUNWIND REQUIRED libunwind)
@@ -42,6 +43,7 @@ target_link_libraries(dnsbalancer
 	ln_pfpthq
 	ln_iniparser
 	ln_xxhash
+	${LIBINI_CONFIG_LIBRARIES}
 	${LDNS_LIBRARIES}
 	${LIBBSD_LIBRARIES}
 	${LIBUNWIND_LIBRARIES}
