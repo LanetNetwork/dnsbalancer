@@ -294,8 +294,6 @@ Distribution and Contribution
 
 Distributed under terms and conditions of GNU GPL v3 (only).
 
-IniParser is licensed under terms and conditions of MIT License.
-
 xxHash is licensed under terms and conditions of BSD 2-Clause License.
 
 The following people are involved in development:

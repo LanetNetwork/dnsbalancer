@@ -14,16 +14,12 @@ TODO
     * MySQL backend
   * contribs:
     * try to get rid of all contribs:
-      * IniParser:
-  	  * is provided by most of distros
-  	  * v3 and v4 API are not compatible
-  	  * no versioning (could cmake check its version?)
-  	* xxHash:
-  	  * fast, but maybe Open/Libre/whateverSSL could provide us with something
-  	    fast as well
-  	  * we de not neet cryptographic hash, but uniformly distributed hash
-  	    that is very fast
-  	  * do some benchmarks?
+      * xxHash:
+        * fast, but maybe Open/Libre/whateverSSL could provide us with something
+          fast as well
+        * we de not neet cryptographic hash, but uniformly distributed hash
+          that is very fast
+        * do some benchmarks?
     * leave pfcq/pfpthq as it is
 
 * possible enhancements:
