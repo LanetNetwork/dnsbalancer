@@ -19,6 +19,7 @@
  */
 
 #include "acl.h"
+#include "config.h"
 
 #include "acl_local.h"
 
@@ -27,7 +28,7 @@ void db_acl_local_load(struct collection_item* _config, const char* _acl_name, s
 	int acl_items_count = 0;
 	char** acl_items = NULL;
 
-	acl_items = get_attribute_list(_config, _acl_name, &acl_items_count, NULL);
+	acl_items = db_config_get_keys(_config, _acl_name, &acl_items_count);
 	if (unlikely(acl_items_count < 1))
 	{
 		inform("No ACL %s found in config file\n", _acl_name);
@@ -36,13 +37,7 @@ void db_acl_local_load(struct collection_item* _config, const char* _acl_name, s
 	TAILQ_INIT(_acl);
 	for (int i = 0; i < acl_items_count; i++)
 	{
-		struct collection_item* acl_item = NULL;
-		if (unlikely(get_config_item(_acl_name, acl_items[i], _config, &acl_item)))
-		{
-			inform("ACL: %s, key: %s\n", _acl_name, acl_items[i]);
-			stop("Unable to get value from config file");
-		}
-		const char* acl_item_expr = get_const_string_config_value(acl_item, NULL);
+		const char* acl_item_expr = db_config_get_cstr(_config, _acl_name, acl_items[i]);
 		char* acl_item_expr_i = pfcq_strdup(acl_item_expr);
 		char* acl_item_expr_p = acl_item_expr_i;
 
@@ -206,7 +201,7 @@ void db_acl_local_load(struct collection_item* _config, const char* _acl_name, s
 		int list_items_count = 0;
 		char** list_items = NULL;
 
-		list_items = get_attribute_list(_config, acl_item_list, &list_items_count, NULL);
+		list_items = db_config_get_keys(_config, acl_item_list, &list_items_count);
 		if (unlikely(list_items_count < 1))
 		{
 			inform("ACL: %s, list: %s, no list found in config file\n", _acl_name, acl_item_list);
@@ -217,13 +212,7 @@ void db_acl_local_load(struct collection_item* _config, const char* _acl_name, s
 		TAILQ_INIT(&new_acl_item->list);
 		for (int j = 0; j < list_items_count; j++)
 		{
-			struct collection_item* acl_list_item = NULL;
-			if (unlikely(get_config_item(acl_item_list, list_items[j], _config, &acl_list_item)))
-			{
-				inform("ACL item: %s, key: %s\n", acl_item_list, list_items[j]);
-				stop("Unable to get value from config file");
-			}
-			const char* list_item = get_const_string_config_value(acl_list_item, NULL);
+			const char* list_item = db_config_get_cstr(_config, acl_item_list, list_items[j]);
 			char* list_item_i = pfcq_strdup(list_item);
 			char* list_item_p = list_item_i;
 
@@ -287,14 +276,14 @@ void db_acl_local_load(struct collection_item* _config, const char* _acl_name, s
 			}
 			TAILQ_INSERT_TAIL(&new_acl_item->list, new_list_item, tailq);
 		}
-		free_attribute_list(list_items);
+		db_config_free_keys(list_items);
 
 		TAILQ_INSERT_TAIL(_acl, new_acl_item, tailq);
 
 		pfcq_free(acl_item_expr_p);
 	}
 
-	free_attribute_list(acl_items);
+	db_config_free_keys(acl_items);
 
 	return;
 }

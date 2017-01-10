@@ -18,7 +18,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <ini_config.h>
 #include <signal.h>
 #include <sys/eventfd.h>
 
@@ -27,6 +26,7 @@
 #endif
 
 #include "acl_local.h"
+#include "config.h"
 #include "watchdog.h"
 #include "worker.h"
 
@@ -36,33 +36,24 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 {
 	struct db_local_context* ret = NULL;
 	struct collection_item* config = NULL;
-	struct collection_item* item = NULL;
 #ifndef MODE_DEBUG
 	rlim_t limit;
 	struct rlimit limits;
 #endif
 
-	if (unlikely(config_from_file(APP_NAME, _config_file, &config, INI_STOP_ON_ANY, NULL)))
-		stop("Unable to load config file");
+	config = db_config_open(_config_file);
 
 	ret = pfcq_alloc(sizeof(struct db_local_context));
 
 	ret->global_context = _g_ctx;
 
-	if (unlikely(get_config_item(DB_CONFIG_GENERAL_SECTION, DB_CONFIG_WATCHDOG_INTERVAL_KEY, config, &item)))
-		stop("Unable to get \"" DB_CONFIG_WATCHDOG_INTERVAL_KEY "\" value from config file");
-	ret->db_watchdog_interval = get_uint64_config_value(item, 0, DB_DEFAULT_WATCHDOG_INTERVAL, NULL);
+	ret->db_watchdog_interval = db_config_get_u64(config, DB_CONFIG_GENERAL_SECTION, DB_CONFIG_WATCHDOG_INTERVAL_KEY, DB_DEFAULT_WATCHDOG_INTERVAL);
 
-
-	if (unlikely(get_config_item(DB_CONFIG_STATS_SECTION, DB_CONFIG_STATS_ENABLED_KEY, config, &item)))
-		stop("Unable to get \"" DB_CONFIG_STATS_ENABLED_KEY "\" value from config file");
-	ret->stats_enabled = (unsigned short int)get_unsigned_config_value(item, 0, 0, NULL);
+	ret->stats_enabled = (unsigned short int)db_config_get_uint(config, DB_CONFIG_STATS_SECTION, DB_CONFIG_STATS_ENABLED_KEY, 0);
 
 	if (ret->stats_enabled)
 	{
-		if (unlikely(get_config_item(DB_CONFIG_STATS_SECTION, DB_CONFIG_STATS_LAYER3_KEY, config, &item)))
-			stop("Unable to get \"" DB_CONFIG_STATS_LAYER3_KEY "\" value from config file");
-		const char* stats_layer3 = get_const_string_config_value(item, NULL);
+		const char* stats_layer3 = db_config_get_cstr(config, DB_CONFIG_STATS_SECTION, DB_CONFIG_STATS_LAYER3_KEY);
 		if (unlikely(!stats_layer3))
 			stop("No stats L3 protocol specified in config file");
 		if (strcmp(stats_layer3, DB_CONFIG_IPV4) == 0)
@@ -72,13 +63,9 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 		else
 			stop("Unknown stats L3 protocol specified in config file");
 
-		if (unlikely(get_config_item(DB_CONFIG_STATS_SECTION, DB_CONFIG_STATS_PORT_KEY, config, &item)))
-			stop("Unable to get \"" DB_CONFIG_STATS_PORT_KEY "\" value from config file");
-		unsigned short int stats_port = (unsigned short int)get_unsigned_config_value(item, 0, DB_DEFAULT_STATS_PORT, NULL);
+		unsigned short int stats_port = (unsigned short int)db_config_get_uint(config, DB_CONFIG_STATS_SECTION, DB_CONFIG_STATS_PORT_KEY, DB_DEFAULT_STATS_PORT);
 
-		if (unlikely(get_config_item(DB_CONFIG_STATS_SECTION, DB_CONFIG_STATS_BIND_KEY, config, &item)))
-			stop("Unable to get \"" DB_CONFIG_STATS_BIND_KEY "\" value from config file");
-		const char* stats_bind = get_const_string_config_value(item, NULL);
+		const char* stats_bind = db_config_get_cstr(config, DB_CONFIG_STATS_SECTION, DB_CONFIG_STATS_BIND_KEY);
 		if (unlikely(!stats_bind))
 			stop("No stats bind address specified in config file");
 		int inet_pton_stats_bind_res = -1;
@@ -103,9 +90,7 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 	}
 
 #ifndef MODE_DEBUG
-	if (unlikely(get_config_item(DB_CONFIG_GENERAL_SECTION, DB_CONFIG_RLIMIT_KEY, config, &item)))
-		stop("Unable to get \"" DB_CONFIG_RLIMIT_KEY "\" value from config file");
-	limit = (rlim_t)get_unsigned_config_value(item, 0, DB_DEFAULT_RLIMIT, NULL);
+	limit = (rlim_t)db_config_get_uint(config, DB_CONFIG_GENERAL_SECTION, DB_CONFIG_RLIMIT_KEY, DB_DEFAULT_RLIMIT);
 
 	limits.rlim_cur = limit;
 	limits.rlim_max = limit;
@@ -117,9 +102,7 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 	}
 #endif
 
-	if (unlikely(get_config_item(DB_CONFIG_GENERAL_SECTION, DB_CONFIG_FRONTENDS_KEY, config, &item)))
-		stop("Unable to get \"" DB_CONFIG_FRONTENDS_KEY "\" value from config file");
-	const char* frontends_str = get_const_string_config_value(item, NULL);
+	const char* frontends_str = db_config_get_cstr(config, DB_CONFIG_GENERAL_SECTION, DB_CONFIG_FRONTENDS_KEY);
 	if (unlikely(!frontends_str))
 		stop("No frontends configured in config file");
 	char* frontends_str_iterator = pfcq_strdup(frontends_str);
@@ -136,18 +119,12 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 		ret->frontends[ret->frontends_count]->l_ctx = ret;
 
 		ret->frontends[ret->frontends_count]->name = pfcq_strdup(frontend);
-		if (unlikely(get_config_item(frontend, DB_CONFIG_FE_WORKERS_KEY, config, &item)))
-			stop("Unable to get \"" DB_CONFIG_FE_WORKERS_KEY "\" value from config file");
-		ret->frontends[ret->frontends_count]->workers_count = pfcq_hint_cpus(get_int_config_value(item, 0, -1, NULL));
+		ret->frontends[ret->frontends_count]->workers_count = pfcq_hint_cpus(db_config_get_int(config, frontend, DB_CONFIG_FE_WORKERS_KEY, -1));
 		ret->frontends[ret->frontends_count]->workers_pool = pfpthq_init(frontend, ret->frontends[ret->frontends_count]->workers_count);
 		ret->frontends[ret->frontends_count]->workers = pfcq_alloc(ret->frontends[ret->frontends_count]->workers_count * sizeof(struct db_worker*));
-		if (unlikely(get_config_item(frontend, DB_CONFIG_FE_DNS_MPL_KEY, config, &item)))
-			stop("Unable to get \"" DB_CONFIG_FE_DNS_MPL_KEY "\" value from config file");
-		ret->frontends[ret->frontends_count]->dns_max_packet_length = get_int_config_value(item, 0, DB_DEFAULT_DNS_PACKET_SIZE, NULL);
+		ret->frontends[ret->frontends_count]->dns_max_packet_length = db_config_get_int(config, frontend, DB_CONFIG_FE_DNS_MPL_KEY, DB_DEFAULT_DNS_PACKET_SIZE);
 
-		if (unlikely(get_config_item(frontend, DB_CONFIG_FE_L3_KEY, config, &item)))
-			stop("Unable to get \"" DB_CONFIG_FE_L3_KEY "\" value from config file");
-		const char* frontend_layer3 = get_const_string_config_value(item, NULL);
+		const char* frontend_layer3 = db_config_get_cstr(config, frontend, DB_CONFIG_FE_L3_KEY);
 		if (unlikely(!frontend_layer3))
 		{
 			inform("Frontend: %s\n", frontend);
@@ -163,12 +140,8 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 			stop("Unknown frontend L3 protocol specified in config file");
 		}
 
-		if (unlikely(get_config_item(frontend, DB_CONFIG_FE_PORT_KEY, config, &item)))
-			stop("Unable to get \"" DB_CONFIG_FE_PORT_KEY "\" value from config file");
-		unsigned short int frontend_port = (unsigned short int)get_int_config_value(item, 0, DB_DEFAULT_DNS_PORT, NULL);
-		if (unlikely(get_config_item(frontend, DB_CONFIG_FE_BIND_KEY, config, &item)))
-			stop("Unable to get \"" DB_CONFIG_FE_BIND_KEY "\" value from config file");
-		const char* frontend_bind = get_const_string_config_value(item, NULL);
+		unsigned short int frontend_port = (unsigned short int)db_config_get_int(config, frontend, DB_CONFIG_FE_PORT_KEY, DB_DEFAULT_DNS_PORT);
+		const char* frontend_bind = db_config_get_cstr(config, frontend, DB_CONFIG_FE_BIND_KEY);
 		if (unlikely(!frontend_bind))
 		{
 			inform("Frontend: %s\n", frontend);
@@ -194,18 +167,14 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 		if (unlikely(inet_pton_bind_res != 1))
 			panic("inet_pton");
 
-		if (unlikely(get_config_item(frontend, DB_CONFIG_FE_BE_KEY, config, &item)))
-			stop("Unable to get \"" DB_CONFIG_FE_BE_KEY "\" value from config file");
-		const char* frontend_backend = get_const_string_config_value(item, NULL);
+		const char* frontend_backend = db_config_get_cstr(config, frontend, DB_CONFIG_FE_BE_KEY);
 		if (unlikely(!frontend_backend))
 		{
 			inform("Frontend: %s\n", frontend);
 			stop("No backend specified in config file");
 		}
 
-		if (unlikely(get_config_item(frontend_backend, DB_CONFIG_BE_MODE_KEY, config, &item)))
-			stop("Unable to get \"" DB_CONFIG_FE_BE_KEY "\" value from config file");
-		const char* backend_mode = get_const_string_config_value(item, NULL);
+		const char* backend_mode = db_config_get_cstr(config, frontend_backend, DB_CONFIG_BE_MODE_KEY);
 		if (unlikely(!backend_mode))
 		{
 			inform("Backend: %s\n", frontend_backend);
@@ -231,9 +200,7 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 			stop("Unknown backend mode specified in config file");
 		}
 
-		if (unlikely(get_config_item(frontend_backend, DB_CONFIG_BE_FORWARDERS_KEY, config, &item)))
-			stop("Unable to get \"" DB_CONFIG_BE_FORWARDERS_KEY "\" value from config file");
-		const char* backend_forwarders = get_const_string_config_value(item, NULL);
+		const char* backend_forwarders = db_config_get_cstr(config, frontend_backend, DB_CONFIG_BE_FORWARDERS_KEY);
 		if (unlikely(!backend_forwarders))
 		{
 			inform("Backend: %s\n", frontend_backend);
@@ -252,18 +219,14 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 						(ret->frontends[ret->frontends_count]->backend.forwarders_count + 1) * sizeof(struct db_forwarder*));
 			ret->frontends[ret->frontends_count]->backend.forwarders[ret->frontends[ret->frontends_count]->backend.forwarders_count] = pfcq_alloc(sizeof(struct db_frontend));
 
-			if (unlikely(get_config_item(forwarder, DB_CONFIG_FW_HOST_KEY, config, &item)))
-				stop("Unable to get \"" DB_CONFIG_FW_HOST_KEY "\" value from config file");
-			const char* forwarder_host = get_const_string_config_value(item, NULL);
+			const char* forwarder_host = db_config_get_cstr(config, forwarder, DB_CONFIG_FW_HOST_KEY);
 			if (unlikely(!forwarder_host))
 			{
 				inform("Forwarder: %s\n", forwarder);
 				stop("No forwarder host specified in config file");
 			}
 
-			if (unlikely(get_config_item(forwarder, DB_CONFIG_FW_L3_KEY, config, &item)))
-				stop("Unable to get \"" DB_CONFIG_FW_L3_KEY "\" value from config file");
-			const char* forwarder_layer3 = get_const_string_config_value(item, NULL);
+			const char* forwarder_layer3 = db_config_get_cstr(config, forwarder, DB_CONFIG_FW_L3_KEY);
 			if (unlikely(!forwarder_layer3))
 			{
 				inform("Forwarder: %s\n", forwarder);
@@ -279,9 +242,7 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 				stop("Unknown forwarder L3 protocol specified in config file");
 			}
 
-			if (unlikely(get_config_item(forwarder, DB_CONFIG_FW_PORT_KEY, config, &item)))
-				stop("Unable to get \"" DB_CONFIG_FW_PORT_KEY "\" value from config file");
-			unsigned short int forwarder_port = (unsigned short int)get_unsigned_config_value(item, 0, DB_DEFAULT_DNS_PORT, NULL);
+			unsigned short int forwarder_port = (unsigned short int)db_config_get_uint(config, forwarder, DB_CONFIG_FW_PORT_KEY, DB_DEFAULT_DNS_PORT);
 			int inet_pton_res = -1;
 			switch (ret->frontends[ret->frontends_count]->backend.forwarders[ret->frontends[ret->frontends_count]->backend.forwarders_count]->layer3)
 			{
@@ -305,17 +266,11 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 				panic("inet_pton");
 			ret->frontends[ret->frontends_count]->backend.forwarders[ret->frontends[ret->frontends_count]->backend.forwarders_count]->name = pfcq_strdup(forwarder);
 
-			if (unlikely(get_config_item(forwarder, DB_CONFIG_FW_CHK_ATTEMPTS_KEY, config, &item)))
-				stop("Unable to get \"" DB_CONFIG_FW_CHK_ATTEMPTS_KEY "\" value from config file");
 			ret->frontends[ret->frontends_count]->backend.forwarders[ret->frontends[ret->frontends_count]->backend.forwarders_count]->check_attempts =
-				(size_t)get_unsigned_config_value(item, 0, DB_DEFAULT_FORWARDER_CHECK_ATTEMPTS, NULL);
-			if (unlikely(get_config_item(forwarder, DB_CONFIG_FW_CHK_TIMEOUT_KEY, config, &item)))
-				stop("Unable to get \"" DB_CONFIG_FW_CHK_TIMEOUT_KEY "\" value from config file");
+				(size_t)db_config_get_uint(config, forwarder, DB_CONFIG_FW_CHK_ATTEMPTS_KEY, DB_DEFAULT_FORWARDER_CHECK_ATTEMPTS);
 			ret->frontends[ret->frontends_count]->backend.forwarders[ret->frontends[ret->frontends_count]->backend.forwarders_count]->check_timeout =
-				get_uint64_config_value(item, 0, DB_DEFAULT_FORWARDER_CHECK_TIMEOUT, NULL) * 1000ULL;
-			if (unlikely(get_config_item(forwarder, DB_CONFIG_FW_CHK_QUERY_KEY, config, &item)))
-				stop("Unable to get \"" DB_CONFIG_FW_CHK_QUERY_KEY "\" value from config file");
-			const char* forwarder_check_query = get_const_string_config_value(item, NULL);
+				db_config_get_u64(config, forwarder, DB_CONFIG_FW_CHK_TIMEOUT_KEY, DB_DEFAULT_FORWARDER_CHECK_TIMEOUT) * 1000ULL;
+			const char* forwarder_check_query = db_config_get_cstr(config, forwarder, DB_CONFIG_FW_CHK_QUERY_KEY);
 			if (unlikely(!forwarder_check_query))
 			{
 				inform("Forwarder: %s\n", forwarder);
@@ -330,10 +285,8 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 							PTHREAD_PROCESS_PRIVATE)))
 				panic("pthread_spin_init");
 
-			if (unlikely(get_config_item(forwarder, DB_CONFIG_FW_WEIGHT_KEY, config, &item)))
-				stop("Unable to get \"" DB_CONFIG_FW_WEIGHT_KEY "\" value from config file");
 			ret->frontends[ret->frontends_count]->backend.forwarders[ret->frontends[ret->frontends_count]->backend.forwarders_count]->weight =
-				get_uint64_config_value(item, 0, DB_DEFAULT_WEIGHT, NULL);
+				db_config_get_u64(config, forwarder, DB_CONFIG_FW_WEIGHT_KEY, DB_DEFAULT_WEIGHT);
 			ret->frontends[ret->frontends_count]->backend.total_weight +=
 				ret->frontends[ret->frontends_count]->backend.forwarders[ret->frontends[ret->frontends_count]->backend.forwarders_count]->weight;
 
@@ -342,9 +295,7 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 		pfcq_free(backend_forwarders_iterator_p);
 
 		const char* frontend_acl = NULL;
-		if (unlikely(get_config_item(frontend, DB_CONFIG_FE_ACL_KEY, config, &item)))
-			stop("Unable to get \"" DB_CONFIG_FE_ACL_KEY "\" value from config file");
-		frontend_acl = get_const_string_config_value(item, NULL);
+		frontend_acl = db_config_get_cstr(config, frontend, DB_CONFIG_FE_ACL_KEY);
 		if (unlikely(!frontend_acl))
 		{
 			inform("Frontend: %s\n", frontend);
@@ -375,7 +326,7 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 	}
 	pfcq_free(frontends_str_iterator_p);
 
-	free_ini_config(config);
+	db_config_close(config);
 
 	ret->watchdog_pool = pfpthq_init("watchdog", 1);
 	ret->watchdog_eventfd = eventfd(0, 0);

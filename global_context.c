@@ -18,12 +18,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <ini_config.h>
 #include <pthread.h>
 #include <signal.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 
+#include "config.h"
 #include "request.h"
 #include "types.h"
 
@@ -115,12 +115,10 @@ struct db_global_context* db_global_context_load(const char* _config_file)
 {
 	struct db_global_context* ret = NULL;
 	struct collection_item* config = NULL;
-	struct collection_item* item = NULL;
 
 	ret = pfcq_alloc(sizeof(struct db_global_context));
 
-	if (unlikely(config_from_file(APP_NAME, _config_file, &config, INI_STOP_ON_ANY, NULL)))
-		stop("Unable to load config file");
+	config = db_config_open(_config_file);
 
 	pfcq_zero(&ret->db_requests.list, UINT16_MAX * sizeof(struct db_request_bucket));
 	ret->db_requests.list_index = 0;
@@ -137,34 +135,28 @@ struct db_global_context* db_global_context_load(const char* _config_file)
 	if (unlikely(pthread_spin_init(&ret->db_requests.requests_count_lock, PTHREAD_PROCESS_PRIVATE)))
 		panic("pthread_spin_init");
 
-	if (unlikely(get_config_item(DB_CONFIG_GENERAL_SECTION, DB_CONFIG_REQUEST_TTL_KEY, config, &item)))
-		stop("Unable to get \"" DB_CONFIG_REQUEST_TTL_KEY "\" value from config file");
-	ret->db_requests.ttl = get_uint64_config_value(item, 0, DB_DEFAULT_REQUEST_TTL, NULL) * 1000000ULL;
+	ret->db_requests.ttl = db_config_get_u64(config, DB_CONFIG_GENERAL_SECTION, DB_CONFIG_REQUEST_TTL_KEY, DB_DEFAULT_REQUEST_TTL)* 1000000ULL;
 	if (unlikely(ret->db_requests.ttl > INT64_MAX))
 	{
 		inform("Request TTL must not exceed %ld ms.\n", INT64_MAX);
 		stop("Are you OK?");
 	}
 
-	if (unlikely(get_config_item(DB_CONFIG_GENERAL_SECTION, DB_CONFIG_RELOAD_RETRY_KEY, config, &item)))
-		stop("Unable to get \"" DB_CONFIG_RELOAD_RETRY_KEY "\" value from config file");
-	ret->reload_retry = get_uint64_config_value(item, 0, DB_DEFAULT_RELOAD_RETRY, NULL);
+	ret->reload_retry = db_config_get_u64(config, DB_CONFIG_GENERAL_SECTION, DB_CONFIG_RELOAD_RETRY_KEY, DB_DEFAULT_RELOAD_RETRY);
 	if (unlikely(ret->reload_retry > INT64_MAX))
 	{
 		inform("Reload retry timeout must not exceed %ld ms.\n", INT64_MAX);
 		stop("Are you OK?");
 	}
 
-	if (unlikely(get_config_item(DB_CONFIG_GENERAL_SECTION, DB_CONFIG_GC_INTERVAL_KEY, config, &item)))
-		stop("Unable to get \"" DB_CONFIG_GC_INTERVAL_KEY "\" value from config file");
-	ret->db_gc_interval = get_uint64_config_value(item, 0, DB_DEFAULT_GC_INTERVAL, NULL);
+	ret->db_gc_interval = db_config_get_u64(config, DB_CONFIG_GENERAL_SECTION, DB_CONFIG_GC_INTERVAL_KEY, DB_DEFAULT_GC_INTERVAL);
 	ret->gc_pool = pfpthq_init("gc", 1);
 	ret->gc_eventfd = eventfd(0, 0);
 	if (unlikely(ret->gc_eventfd == -1))
 		panic("eventfd");
 	pfpthq_inc(ret->gc_pool, &ret->gc_id, "gc", db_gc, (void*)ret);
 
-	free_ini_config(config);
+	db_config_close(config);
 
 	return ret;
 }

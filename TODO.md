@@ -3,7 +3,6 @@ TODO
 
 * known issues:
   * reload is not reliable under high load -- find out why and fix
-  * wrap ini\_config calls for unification and error checking
 
 * required enhancements:
   * core:

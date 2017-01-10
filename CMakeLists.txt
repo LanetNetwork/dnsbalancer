@@ -25,6 +25,7 @@ add_subdirectory(contrib/pfpthq)
 add_executable(dnsbalancer
 	acl.c
 	acl_local.c
+	config.c
 	dnsbalancer.c
 	global_context.c
 	local_context.c
