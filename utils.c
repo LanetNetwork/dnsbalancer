@@ -18,8 +18,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "contrib/xxhash/xxhash.h"
-
 #include "utils.h"
 
 static uint64_t db_netaddr_addr_hash64(sa_family_t _family, pfcq_net_address_t _netaddr)
@@ -36,7 +34,7 @@ static uint64_t db_netaddr_addr_hash64(sa_family_t _family, pfcq_net_address_t _
 		case PF_INET:
 			s_addr = ntohl(_netaddr.address4.sin_addr.s_addr);
 			s_addr_buf = (const uint8_t*)&s_addr;
-			ret = XXH64(s_addr_buf, sizeof(unsigned long), ret);
+			ret = pfcq_fast_hash(s_addr_buf, sizeof(unsigned long), ret);
 			break;
 		case PF_INET6:
 			for (size_t i = 0; i < sizeof(_netaddr.address6.sin6_addr.s6_addr); i += sizeof(_netaddr.address6.sin6_addr.s6_addr) / sizeof(uint32_t))
@@ -44,7 +42,7 @@ static uint64_t db_netaddr_addr_hash64(sa_family_t _family, pfcq_net_address_t _
 				s6_addr_piece = (uint32_t*)&_netaddr.address6.sin6_addr.s6_addr[i];
 				s6_addr_piece_h = ntohl(*s6_addr_piece);
 				s6_addr_buf = (const uint8_t*)&s6_addr_piece_h;
-				ret = XXH64(s6_addr_buf, sizeof(uint32_t), ret);
+				ret = pfcq_fast_hash(s6_addr_buf, sizeof(uint32_t), ret);
 			}
 			break;
 		default:
@@ -66,12 +64,12 @@ static uint64_t db_netaddr_port_hash64(sa_family_t _family, pfcq_net_address_t _
 		case PF_INET:
 			u_port = ntohs(_netaddr.address4.sin_port);
 			u_port_buf = (const uint8_t*)&u_port;
-			ret = XXH64(u_port_buf, sizeof(unsigned short), ret);
+			ret = pfcq_fast_hash(u_port_buf, sizeof(unsigned short), ret);
 			break;
 		case PF_INET6:
 			u_port = ntohs(_netaddr.address6.sin6_port);
 			u_port_buf = (const uint8_t*)&u_port;
-			ret = XXH64(u_port_buf, sizeof(unsigned short), ret);
+			ret = pfcq_fast_hash(u_port_buf, sizeof(unsigned short), ret);
 			break;
 		default:
 			panic("socket domain");

@@ -20,8 +20,6 @@
 
 #include "acl.h"
 
-#include "contrib/xxhash/xxhash.h"
-
 #include "acl_local.h"
 
 void db_acl_local_load(struct collection_item* _config, const char* _acl_name, struct db_acl* _acl)
@@ -264,7 +262,7 @@ void db_acl_local_load(struct collection_item* _config, const char* _acl_name, s
 			}
 			new_list_item->s_fqdn = pfcq_strdup(list_item_fqdn);
 			new_list_item->s_fqdn_length = strlen(new_list_item->s_fqdn);
-			new_list_item->s_fqdn_hash = XXH64((uint8_t*)new_list_item->s_fqdn, new_list_item->s_fqdn_length, DB_HASH_SEED);
+			new_list_item->s_fqdn_hash = pfcq_fast_hash((uint8_t*)new_list_item->s_fqdn, new_list_item->s_fqdn_length, DB_HASH_SEED);
 
 			pfcq_free(list_item_p);
 

@@ -38,7 +38,7 @@ appropriately.
 To avoid 2^16 concurrent requests limit, request table consists of collision
 buckets. If there are 2 or more requests sent to forwarder with the same ID,
 they are stored in linked list. To speed up linked list lookup under high load,
-xxHash of DNS data is used.
+FNV-1a hash of DNS data is used.
 
 Configuration
 -------------
@@ -293,8 +293,6 @@ Distribution and Contribution
 -----------------------------
 
 Distributed under terms and conditions of GNU GPL v3 (only).
-
-xxHash is licensed under terms and conditions of BSD 2-Clause License.
 
 The following people are involved in development:
 

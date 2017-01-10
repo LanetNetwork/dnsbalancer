@@ -20,8 +20,6 @@
 
 #include "acl.h"
 
-#include "contrib/xxhash/xxhash.h"
-
 void db_acl_free_item(struct db_acl_item* _item)
 {
 	pfcq_free(_item->s_action_parameters);
@@ -83,7 +81,7 @@ enum db_acl_action db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _
 			continue;
 
 		// Match request
-		uint64_t fqdn_hash = XXH64((uint8_t*)_request_data->fqdn, strlen(_request_data->fqdn), DB_HASH_SEED);
+		uint64_t fqdn_hash = pfcq_fast_hash((uint8_t*)_request_data->fqdn, strlen(_request_data->fqdn), DB_HASH_SEED);
 		unsigned short int matcher_matched = 0;
 		struct db_list_item* current_list_item = NULL;
 		TAILQ_FOREACH(current_list_item, &current_acl_item->list, tailq)

@@ -21,7 +21,6 @@ find_package(LDNS REQUIRED)
 
 add_subdirectory(contrib/pfcq)
 add_subdirectory(contrib/pfpthq)
-add_subdirectory(contrib/xxhash)
 
 add_executable(dnsbalancer
 	acl.c
@@ -40,7 +39,6 @@ target_link_libraries(dnsbalancer
 	rt
 	ln_pfcq
 	ln_pfpthq
-	ln_xxhash
 	${LIBINI_CONFIG_LIBRARIES}
 	${LDNS_LIBRARIES}
 	${LIBBSD_LIBRARIES}

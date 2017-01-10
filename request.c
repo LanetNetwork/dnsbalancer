@@ -18,8 +18,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "contrib/xxhash/xxhash.h"
-
 #include "request.h"
 
 struct db_request_data db_make_request_data(ldns_pkt* _packet, int _forwarder_socket)
@@ -40,10 +38,10 @@ struct db_request_data db_make_request_data(ldns_pkt* _packet, int _forwarder_so
 	strncpy(ret.fqdn, owner_str, HOST_NAME_MAX);
 	free(owner_str);
 	ret.forwarder_socket = _forwarder_socket;
-	ret.hash = XXH64((uint8_t*)&ret.rr_type, sizeof(ldns_rr_type), DB_HASH_SEED);
-	ret.hash = XXH64((uint8_t*)&ret.rr_class, sizeof(ldns_rr_class), ret.hash);
-	ret.hash = XXH64((uint8_t*)ret.fqdn, strlen(ret.fqdn), ret.hash);
-	ret.hash = XXH64((uint8_t*)&ret.forwarder_socket, sizeof(int), ret.hash);
+	ret.hash = pfcq_fast_hash((uint8_t*)&ret.rr_type, sizeof(ldns_rr_type), DB_HASH_SEED);
+	ret.hash = pfcq_fast_hash((uint8_t*)&ret.rr_class, sizeof(ldns_rr_class), ret.hash);
+	ret.hash = pfcq_fast_hash((uint8_t*)ret.fqdn, strlen(ret.fqdn), ret.hash);
+	ret.hash = pfcq_fast_hash((uint8_t*)&ret.forwarder_socket, sizeof(int), ret.hash);
 
 	return ret;
 }

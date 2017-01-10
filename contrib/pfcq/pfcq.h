@@ -176,5 +176,18 @@ static inline void pfcq_sleep(uint64_t _ns)
 		continue;
 }
 
+static inline uint64_t pfcq_fast_hash(const uint8_t* _data, size_t _data_size, uint64_t _seed)
+{
+	uint64_t ret = 0xcbf29ce484222325;
+
+	for (size_t i = 0; i < _data_size; i++)
+	{
+		ret ^= _data[i];
+		ret *= 0x100000001b3;
+	}
+
+	return ret ^ _seed;
+}
+
 #endif /* __PFCQ_H__ */
 
