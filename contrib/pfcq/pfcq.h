@@ -127,14 +127,14 @@ unsigned short int pfcq_hint_cpus(int _hint) __attribute__((warn_unused_result))
 int pfcq_isopened(const char* _path) __attribute__((nonnull(1), warn_unused_result));
 char* pfcq_get_file_path_from_fd(int _fd, char* _buffer, size_t _buffer_size) __attribute__((nonnull(2), warn_unused_result));
 
-void pfcq_fprng_init(pfcq_fprng_context_t* _context);
-uint64_t pfcq_fprng_get_u64(pfcq_fprng_context_t* _context);
+void pfcq_fprng_init(pfcq_fprng_context_t* _context) __attribute__((nonnull(1)));
+uint64_t pfcq_fprng_get_u64(pfcq_fprng_context_t* _context) __attribute__((nonnull(1), warn_unused_result));
 
-int64_t pfcq_timespec_diff_ns(struct timespec _timestamp1, struct timespec _timestamp2);
-struct timeval pfcq_us_to_timeval(uint64_t _us);
+int64_t pfcq_timespec_diff_ns(struct timespec _timestamp1, struct timespec _timestamp2) __attribute__((warn_unused_result));
+struct timeval pfcq_us_to_timeval(uint64_t _us) __attribute__((warn_unused_result));
 void pfcq_sleep(uint64_t _us);
 
-uint64_t pfcq_fast_hash(const uint8_t* _data, size_t _data_size, uint64_t _seed);
+uint64_t pfcq_fast_hash(const uint8_t* _data, size_t _data_size, uint64_t _seed) __attribute__((nonnull(1), warn_unused_result));
 
 #endif /* __PFCQ_H__ */
 
