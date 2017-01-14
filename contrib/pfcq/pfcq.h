@@ -44,7 +44,7 @@
 #define stop(A)					__pfcq_stop(A)
 #define panic(A)				__pfcq_panic(A, errno, __FILE__, __LINE__)
 
-#define pfcq_zero(A, B)			memset(A, 0, B)
+#define pfcq_zero(A, B)			pfcq_memset_g(A, 0, B)
 #define pfcq_free(A)			__pfcq_free((void**)&(A))
 
 #ifdef __GNUC__
@@ -105,6 +105,8 @@ void __pfcq_stop(const char* _message) __attribute__((noreturn, nonnull(1)));
 void __pfcq_panic(const char* _message, const int _errno, const char* _file, int _line) __attribute__((noreturn, nonnull(1, 3)));
 void pfcq_debug_init(int _verbose, int _debug, int _syslog);
 void pfcq_debug_done(void);
+
+void pfcq_memset_g(void* _data, int _byte, size_t _size) __attribute__((nonnull(1)));
 
 #ifdef __clang__
 void* pfcq_alloc(size_t _size) __attribute__((malloc, warn_unused_result));

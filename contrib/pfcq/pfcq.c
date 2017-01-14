@@ -174,6 +174,18 @@ void pfcq_debug_done(void)
 	return;
 }
 
+void pfcq_memset_g(void* _data, int _byte, size_t _size)
+{
+	volatile unsigned char* data = _data;
+
+	while (_size--)
+	{
+		*data++ = (unsigned char)_byte;
+	}
+
+	return;
+}
+
 void* pfcq_alloc(size_t _size)
 {
 	void* res = NULL;
