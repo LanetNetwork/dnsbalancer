@@ -63,6 +63,9 @@ static int pfcq_warnings_count;
 static int pfcq_use_syslog;
 static pthread_mutex_t pfcq_warning_ordering_lock;
 
+static inline uint64_t __pfcq_timespec_to_ns(struct timespec _timestamp) __attribute__((always_inline));
+static inline struct timespec __pfcq_ns_to_timespec(uint64_t _ns) __attribute__((always_inline));
+
 void __pfcq_debug(int _direct, const char* _format, ...)
 {
 	va_list arguments;
@@ -470,3 +473,55 @@ uint64_t pfcq_fprng_get_u64(pfcq_fprng_context_t* _context)
 	return _context->seed;
 }
 
+int64_t __pfcq_timespec_diff_ns(struct timespec _timestamp1, struct timespec _timestamp2)
+{
+	uint64_t ns1 = __pfcq_timespec_to_ns(_timestamp1);
+	uint64_t ns2 = __pfcq_timespec_to_ns(_timestamp2);
+	return ns2 - ns1;
+}
+
+struct timeval __pfcq_us_to_timeval(uint64_t _us)
+{
+	struct timeval ret;
+
+	ret.tv_sec = _us / 1000000ULL;
+	ret.tv_usec = _us - ret.tv_sec * 1000000ULL;
+
+	return ret;
+}
+
+void pfcq_sleep(uint64_t _ns)
+{
+	struct timespec time_to_sleep = __pfcq_ns_to_timespec(_ns);
+
+	while (likely(nanosleep(&time_to_sleep, &time_to_sleep) == -1 && errno == EINTR))
+		continue;
+}
+
+uint64_t pfcq_fast_hash(const uint8_t* _data, size_t _data_size, uint64_t _seed)
+{
+	uint64_t ret = 0xcbf29ce484222325;
+
+	for (size_t i = 0; i < _data_size; i++)
+	{
+		ret ^= _data[i];
+		ret *= 0x100000001b3;
+	}
+
+	return ret ^ _seed;
+}
+
+static inline uint64_t __pfcq_timespec_to_ns(struct timespec _timestamp)
+{
+	return _timestamp.tv_sec * 1000000000ULL + _timestamp.tv_nsec;
+}
+
+static inline struct timespec __pfcq_ns_to_timespec(uint64_t _ns)
+{
+	struct timespec ret;
+
+	ret.tv_sec = _ns / 1000000000ULL;
+	ret.tv_nsec = _ns - ret.tv_sec * 1000000000ULL;
+
+	return ret;
+}
