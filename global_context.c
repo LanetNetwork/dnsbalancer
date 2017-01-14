@@ -91,7 +91,7 @@ static void* db_gc(void* _data)
 			for (current_item = TAILQ_FIRST(&ctx->db_requests.list[i].requests); current_item; current_item = tmp_item)
 			{
 				tmp_item = TAILQ_NEXT(current_item, tailq);
-				int64_t diff_ns = __pfcq_timespec_diff_ns(current_item->ctime, current_time);
+				int64_t diff_ns = pfcq_timespec_diff_ns(current_item->ctime, current_time);
 				if (unlikely(diff_ns >= (int64_t)ctx->db_requests.ttl))
 					db_remove_request_unsafe(&ctx->db_requests, i, current_item);
 			}

@@ -32,7 +32,7 @@ int db_ping_forwarder(struct db_forwarder* _forwarder)
 	size_t db_ping_packet_buffer_size = 0;
 	uint8_t* db_ping_packet_buffer = NULL;
 	uint8_t db_echo_packet_buffer[DB_DEFAULT_DNS_PACKET_SIZE];
-	struct timeval timeout = __pfcq_us_to_timeval(_forwarder->check_timeout);
+	struct timeval timeout = pfcq_us_to_timeval(_forwarder->check_timeout);
 
 	pfcq_zero(db_echo_packet_buffer, DB_DEFAULT_DNS_PACKET_SIZE);
 

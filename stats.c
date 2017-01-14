@@ -326,7 +326,7 @@ void db_stats_latency_update(struct db_local_context* _ctx, struct timespec _cti
 	if (unlikely(clock_gettime(CLOCK_REALTIME, &time_now)))
 		panic("clock_gettime");
 
-	bucket = DB_LOG2(__pfcq_timespec_diff_ns(_ctime, time_now) / 1000);
+	bucket = DB_LOG2(pfcq_timespec_diff_ns(_ctime, time_now) / 1000);
 	if (bucket >= DB_LATENCY_BUCKETS)
 		bucket = DB_LATENCY_BUCKETS - 1;
 

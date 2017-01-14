@@ -473,14 +473,14 @@ uint64_t pfcq_fprng_get_u64(pfcq_fprng_context_t* _context)
 	return _context->seed;
 }
 
-int64_t __pfcq_timespec_diff_ns(struct timespec _timestamp1, struct timespec _timestamp2)
+int64_t pfcq_timespec_diff_ns(struct timespec _timestamp1, struct timespec _timestamp2)
 {
 	uint64_t ns1 = __pfcq_timespec_to_ns(_timestamp1);
 	uint64_t ns2 = __pfcq_timespec_to_ns(_timestamp2);
 	return ns2 - ns1;
 }
 
-struct timeval __pfcq_us_to_timeval(uint64_t _us)
+struct timeval pfcq_us_to_timeval(uint64_t _us)
 {
 	struct timeval ret;
 
