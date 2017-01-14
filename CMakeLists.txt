@@ -5,6 +5,7 @@ include(generic)
 
 include(FindPkgConfig)
 if (PKG_CONFIG_FOUND)
+	pkg_check_modules(LIBUV REQUIRED libuv)
 	pkg_check_modules(LIBINI_CONFIG REQUIRED ini_config)
 	pkg_check_modules(LIBMICROHTTPD REQUIRED libmicrohttpd)
 	pkg_check_modules(LIBBSD REQUIRED libbsd)
@@ -20,7 +21,6 @@ endif (PKG_CONFIG_FOUND)
 find_package(LDNS REQUIRED)
 
 add_subdirectory(contrib/pfcq)
-add_subdirectory(contrib/pfpthq)
 
 add_executable(dnsbalancer
 	acl.c
@@ -39,7 +39,7 @@ target_link_libraries(dnsbalancer
 	pthread
 	rt
 	ln_pfcq
-	ln_pfpthq
+	${LIBUV_LIBRARIES}
 	${LIBINI_CONFIG_LIBRARIES}
 	${LDNS_LIBRARIES}
 	${LIBBSD_LIBRARIES}

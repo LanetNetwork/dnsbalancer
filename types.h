@@ -30,11 +30,11 @@
 #include <stdint.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
+#include <uv.h>
 
 #include "defines.h"
 
 #include "contrib/pfcq/pfcq.h"
-#include "contrib/pfpthq/pfpthq.h"
 
 enum db_backend_mode
 {
@@ -222,7 +222,7 @@ struct db_frontend
 	char* name;
 	pfcq_net_address_t address;
 	size_t dns_max_packet_length;
-	pfpthq_pool_t* workers_pool;
+	uv_thread_t* workers_pool;
 	struct db_worker** workers;
 	int workers_count;
 	enum db_acl_source acl_source;
@@ -237,8 +237,7 @@ struct db_frontend
 struct db_global_context
 {
 	struct db_request_list db_requests;
-	pfpthq_pool_t* gc_pool;
-	pthread_t gc_id;
+	uv_thread_t* gc_pool;
 	uint64_t db_gc_interval;
 	int gc_eventfd;
 	uint64_t reload_retry;
@@ -255,8 +254,7 @@ struct db_local_context
 	struct db_global_context* global_context;
 	struct db_frontend** frontends;
 	size_t frontends_count;
-	pfpthq_pool_t* watchdog_pool;
-	pthread_t watchdog_id;
+	uv_thread_t* watchdog_pool;
 	uint64_t db_watchdog_interval;
 	int watchdog_eventfd;
 	unsigned short int stats_enabled;
@@ -269,7 +267,7 @@ struct db_local_context
 struct db_worker
 {
 	struct db_frontend* frontend;
-	pthread_t id;
+	uv_thread_t id;
 	int eventfd;
 };
 

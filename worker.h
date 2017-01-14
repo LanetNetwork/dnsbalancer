@@ -23,7 +23,7 @@
 #ifndef __WORKER_H__
 #define __WORKER_H__
 
-void* db_worker(void* _data) __attribute__((nonnull(1)));
+void db_worker(void* _data) __attribute__((nonnull(1)));
 
 #endif /* __WORKER_H__ */
 

@@ -31,14 +31,14 @@
 
 #include "global_context.h"
 
-static void* db_gc(void* _data)
+static void db_gc(void* _data)
 {
 	int epoll_fd = -1;
 	struct epoll_event epoll_event;
 	struct epoll_event epoll_events[EPOLL_MAXEVENTS];
 
 	if (unlikely(!_data))
-		return NULL;
+		return;
 	struct db_global_context* ctx = _data;
 
 	pfcq_zero(&epoll_event, sizeof(struct epoll_event));
@@ -106,9 +106,7 @@ lfree:
 	if (unlikely(close(ctx->gc_eventfd) == -1))
 		panic("close");
 
-	pfpthq_dec(ctx->gc_pool);
-
-	return NULL;
+	return;
 }
 
 struct db_global_context* db_global_context_load(const char* _config_file)
@@ -150,11 +148,11 @@ struct db_global_context* db_global_context_load(const char* _config_file)
 	}
 
 	ret->db_gc_interval = db_config_get_u64(config, DB_CONFIG_GENERAL_SECTION, DB_CONFIG_GC_INTERVAL_KEY, DB_DEFAULT_GC_INTERVAL);
-	ret->gc_pool = pfpthq_init("gc", 1);
+	ret->gc_pool = pfcq_alloc(1 * sizeof(uv_thread_t));
 	ret->gc_eventfd = eventfd(0, 0);
 	if (unlikely(ret->gc_eventfd == -1))
 		panic("eventfd");
-	pfpthq_inc(ret->gc_pool, &ret->gc_id, "gc", db_gc, (void*)ret);
+	uv_thread_create(&ret->gc_pool[0], db_gc, (void*)ret);
 
 	db_config_close(config);
 
@@ -165,8 +163,8 @@ void db_global_context_unload(struct db_global_context* _g_ctx)
 {
 	if (unlikely(eventfd_write(_g_ctx->gc_eventfd, 1) == -1))
 		panic("eventfd_write");
-	pfpthq_wait(_g_ctx->gc_pool);
-	pfpthq_done(_g_ctx->gc_pool);
+	uv_thread_join(&_g_ctx->gc_pool[0]);
+	pfcq_free(_g_ctx->gc_pool);
 
 	for (size_t i = 0; i < UINT16_MAX; i++)
 	{

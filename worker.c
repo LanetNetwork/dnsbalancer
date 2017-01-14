@@ -29,7 +29,7 @@
 
 #include "worker.h"
 
-void* db_worker(void* _data)
+void db_worker(void* _data)
 {
 	struct db_worker* data = _data;
 	struct db_frontend* frontend = data->frontend;
@@ -464,8 +464,6 @@ lfree:
 			panic("close");
 	}
 
-	pfpthq_dec(frontend->workers_pool);
-
-	return NULL;
+	return;
 }
 

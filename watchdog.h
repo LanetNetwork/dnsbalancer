@@ -26,7 +26,7 @@
 #include "types.h"
 
 int db_ping_forwarder(struct db_forwarder* _forwarder) __attribute__((nonnull(1)));
-void* db_watchdog(void* _data) __attribute__((nonnull(1)));
+void db_watchdog(void* _data) __attribute__((nonnull(1)));
 
 #endif /* __WATCHDOG_H__ */
 

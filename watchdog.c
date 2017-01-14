@@ -119,7 +119,7 @@ out:
 	return ret;
 }
 
-void* db_watchdog(void* _data)
+void db_watchdog(void* _data)
 {
 	int epoll_fd = -1;
 	struct epoll_event epoll_event;
@@ -194,8 +194,6 @@ lfree:
 	if (unlikely(close(ctx->watchdog_eventfd) == -1))
 		panic("close");
 
-	pfpthq_dec(ctx->watchdog_pool);
-
-	return NULL;
+	return;
 }
 

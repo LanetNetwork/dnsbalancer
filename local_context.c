@@ -120,7 +120,7 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 
 		ret->frontends[ret->frontends_count]->name = pfcq_strdup(frontend);
 		ret->frontends[ret->frontends_count]->workers_count = pfcq_hint_cpus(db_config_get_int(config, frontend, DB_CONFIG_FE_WORKERS_KEY, -1));
-		ret->frontends[ret->frontends_count]->workers_pool = pfpthq_init(frontend, ret->frontends[ret->frontends_count]->workers_count);
+		ret->frontends[ret->frontends_count]->workers_pool = pfcq_alloc(ret->frontends[ret->frontends_count]->workers_count * sizeof(uv_thread_t));
 		ret->frontends[ret->frontends_count]->workers = pfcq_alloc(ret->frontends[ret->frontends_count]->workers_count * sizeof(struct db_worker*));
 		ret->frontends[ret->frontends_count]->dns_max_packet_length = db_config_get_int(config, frontend, DB_CONFIG_FE_DNS_MPL_KEY, DB_DEFAULT_DNS_PACKET_SIZE);
 
@@ -328,11 +328,11 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 
 	db_config_close(config);
 
-	ret->watchdog_pool = pfpthq_init("watchdog", 1);
+	ret->watchdog_pool = pfcq_alloc(1 * sizeof(uv_thread_t));
 	ret->watchdog_eventfd = eventfd(0, 0);
 	if (unlikely(ret->watchdog_eventfd == -1))
 		panic("eventfd");
-	pfpthq_inc(ret->watchdog_pool, &ret->watchdog_id, "watchdog", db_watchdog, (void*)ret);
+	uv_thread_create(&ret->watchdog_pool[0], db_watchdog, (void*)ret);
 
 	for (size_t i = 0; i < ret->frontends_count; i++)
 	{
@@ -353,7 +353,8 @@ struct db_local_context* db_local_context_load(const char* _config_file, struct 
 			if (unlikely(new_worker->eventfd == -1))
 				panic("eventfd");
 			ret->frontends[i]->workers[j] = new_worker;
-			pfpthq_inc(ret->frontends[i]->workers_pool, &new_worker->id, ret->frontends[i]->name, db_worker, new_worker);
+			uv_thread_create(&ret->frontends[i]->workers_pool[j], db_worker, (void*)new_worker);
+			new_worker->id = ret->frontends[i]->workers_pool[j];
 		}
 	}
 
@@ -364,16 +365,16 @@ void db_local_context_unload(struct db_local_context* _l_ctx)
 {
 	if (unlikely(eventfd_write(_l_ctx->watchdog_eventfd, 1) == -1))
 		panic("eventfd_write");
-	pfpthq_wait(_l_ctx->watchdog_pool);
-	pfpthq_done(_l_ctx->watchdog_pool);
+	uv_thread_join(&_l_ctx->watchdog_pool[0]);
 
 	for (size_t i = 0; i < _l_ctx->frontends_count; i++)
 	{
 		for (int j = 0; j < _l_ctx->frontends[i]->workers_count; j++)
+		{
 			if (unlikely(eventfd_write(_l_ctx->frontends[i]->workers[j]->eventfd, 1) == -1))
 				panic("eventfd_write");
-		pfpthq_wait(_l_ctx->frontends[i]->workers_pool);
-		pfpthq_done(_l_ctx->frontends[i]->workers_pool);
+			uv_thread_join(&_l_ctx->frontends[i]->workers_pool[j]);
+		}
 		for (int j = 0; j < _l_ctx->frontends[i]->workers_count; j++)
 			pfcq_free(_l_ctx->frontends[i]->workers[j]);
 		for (size_t j = 0; j < _l_ctx->frontends[i]->backend.forwarders_count; j++)

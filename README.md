@@ -254,6 +254,7 @@ Compiling
 * libmicrohttpd (tested with 0.9.52)
 * libunwind (tested with 1.1)
 * libini\_config (tested with 1.3.0)
+* libuv (tested with 1.10.2)
 
 ### Compiling
 
