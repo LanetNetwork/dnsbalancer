@@ -246,14 +246,14 @@ Compiling
 ### Prerequisites
 
 * Linux v3.9+ (for SO\_REUSEPORT, tested with 3.10+)
-* cmake (tested with 2.8.11, 3.5.2)
-* make (tested with GNU Make 3.82, 4.2.1)
-* gcc (tested with 4.8.5, 6.1.1), clang (tested with 3.8.0) or icc (tested with
-  16.0.3)
-* libbsd (tested with 0.6.0, 0.8.3)
-* LDNS (tested with 1.6.16, 1.6.17)
-* libmicrohttpd (tested with 0.9.33, 0.9.49)
+* cmake (tested with 3.7.1)
+* make (tested with GNU Make 4.2.1)
+* gcc (tested with 6.3.1), clang (tested with 3.9.1) or icc (tested with 17.0.1)
+* libbsd (tested with 0.8.3)
+* LDNS (tested with 1.7.0)
+* libmicrohttpd (tested with 0.9.52)
 * libunwind (tested with 1.1)
+* libini\_config (tested with 1.3.0)
 
 ### Compiling
 
