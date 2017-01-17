@@ -5,6 +5,7 @@ include(generic)
 
 include(FindPkgConfig)
 if (PKG_CONFIG_FOUND)
+	pkg_check_modules(LIBLDNS REQUIRED ldns)
 	pkg_check_modules(LIBUV REQUIRED libuv)
 	pkg_check_modules(LIBINI_CONFIG REQUIRED ini_config)
 	pkg_check_modules(LIBMICROHTTPD REQUIRED libmicrohttpd)
@@ -17,8 +18,6 @@ if (PKG_CONFIG_FOUND)
 		endif (LIBTCMALLOC_MINIMAL_FOUND EQUAL 1)
 	endif(NOT CMAKE_BUILD_TYPE MATCHES Debug)
 endif (PKG_CONFIG_FOUND)
-
-find_package(LDNS REQUIRED)
 
 add_subdirectory(contrib/pfcq)
 
@@ -39,9 +38,9 @@ target_link_libraries(dnsbalancer
 	pthread
 	rt
 	ln_pfcq
+	${LIBLDNS_LIBRARIES}
 	${LIBUV_LIBRARIES}
 	${LIBINI_CONFIG_LIBRARIES}
-	${LDNS_LIBRARIES}
 	${LIBBSD_LIBRARIES}
 	${LIBUNWIND_LIBRARIES}
 	${LIBMICROHTTPD_LIBRARIES}
