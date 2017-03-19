@@ -1,11 +1,11 @@
 Name:           dnsbalancer
-Version:        0.0.2
+Version:        0.1.0
 Release:        1%{?dist}
 Summary:        Daemon to balance UDP DNS requests over DNS servers
 
 License:        GPLv3
 URL:            https://github.com/pfactum/dnsbalancer
-Source0:        dnsbalancer-0.0.2.tar.gz
+Source0:        dnsbalancer-0.1.0.tar.gz
 
 BuildRequires:   gcc cmake make libini_config-devel libbsd-devel ldns-devel libmicrohttpd-devel openssl-devel gperftools-devel libunwind-devel
 Requires:        libini_config libbsd ldns libmicrohttpd openssl gperftools-devel libunwind

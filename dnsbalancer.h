@@ -29,7 +29,7 @@
 #error "SO_REUSEPORT is undeclared (pre-3.9 Linux kernel?)"
 #endif /* !defined(SO_REUSEPORT) */
 
-#define APP_VERSION							"0.0.2"
+#define APP_VERSION							"0.1.0"
 #define APP_YEAR							"2015-2017"
 #define APP_INITIAL_HOLDER					"Lanet Network"
 #define APP_PROGRAMMER						"Oleksandr Natalenko"
