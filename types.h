@@ -218,12 +218,11 @@ struct ds_wrk_ctx
 	int poll_timeo;
 	int wrk_fd;
 
-	int notify_exit_fd;
-
 	int ev_prep_fd;
 	int ev_fwd_fd;
 	int ev_rep_fd;
 	int ev_wdt_rep_fd;
+	int ev_gc_fd;
 	struct ds_wrk_tsk_list prep_queue;
 	struct ds_wrk_tsk_list fwd_queue;
 	struct ds_wrk_tsk_list rep_queue;
@@ -248,10 +247,11 @@ struct ds_ctx
 	struct ds_acl_req* acl_reqs;
 	size_t n_acl_acts;
 	struct ds_acl_act* acl_acts;
-	int gc_fd;
 	int wdt_fd;
 	int tk_fd;
+	int exit_fd;
 	uint64_t req_ttl;
+	uint64_t gc_intvl;
 	struct ds_wrk_ctx** wrks;
 	size_t nwrks;
 	int poll_timeo;

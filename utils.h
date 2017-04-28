@@ -36,6 +36,7 @@ int ds_fwd_sk_cmp(const void* _p1, const void* _p2, void* _param) __attribute__(
 int ds_tsk_cmp(const void* _p1, const void* _p2, void* _param) __attribute__((warn_unused_result));
 void ds_epoll_add_fd(int _evfd, int _fd, uint32_t _events);
 void ds_epoll_del_fd(int _evfd, int _fd);
+void ds_produce_u64_val(int _fd, uint64_t _value);
 void ds_produce_u64(int _fd);
 void ds_consume_u64(int _fd);
 int ds_try_consume_u64(int _fd) __attribute__((warn_unused_result));

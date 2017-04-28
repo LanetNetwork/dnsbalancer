@@ -65,14 +65,14 @@ int ds_wrk_loop_handler(struct epoll_event _event, struct ds_wrk_ctx* _data)
 	}
 
 	// perform exit
-	if (_event.data.fd == _data->notify_exit_fd)
+	if (_event.data.fd == _data->ctx->exit_fd)
 	{
 		ret = ds_wrk_exit_handler(_event.data.fd, _data);
 		goto out;
 	}
 
 	// perform tracking tree GC
-	if (_event.data.fd == _data->ctx->gc_fd)
+	if (_event.data.fd == _data->ev_gc_fd)
 	{
 		ret = ds_wrk_gc_handler(_event.data.fd, _data);
 		goto out;

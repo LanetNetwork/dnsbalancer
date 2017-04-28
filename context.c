@@ -409,11 +409,11 @@ struct ds_ctx* ds_ctx_load(const char* _config_file)
 
 	ret->req_ttl = ds_cfg_get_u64(cfg, DS_CFG_SECTION_GENERAL,
 								  DS_CFG_KEY_REQ_TTL, DS_CFG_DEFAULT_REQ_TTL) * 1000000ULL;
-	ret->gc_fd = ds_timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
-	ds_timerfd_settime(ret->gc_fd,
-					   ds_cfg_get_u64(cfg, DS_CFG_SECTION_GENERAL,
-									  DS_CFG_KEY_GC_INTVL,
-									  DS_CFG_DEFAULT_GC_INTVL) * 1000000ULL);
+	ret->gc_intvl = ds_cfg_get_u64(cfg, DS_CFG_SECTION_GENERAL,
+								   DS_CFG_KEY_GC_INTVL,
+								   DS_CFG_DEFAULT_GC_INTVL) * 1000000ULL;
+
+	ret->exit_fd = ds_eventfd(0, EFD_SEMAPHORE | EFD_NONBLOCK);
 
 	ret->nwrks = pfcq_hint_cpus(ds_cfg_get_int(cfg, DS_CFG_SECTION_GENERAL, DS_CFG_KEY_WRKS, DS_CFG_DEFAULT_WRKS));
 	ret->wrks = pfcq_alloc(ret->nwrks * sizeof(struct ds_wrk_ctx*));
@@ -447,7 +447,7 @@ void ds_ctx_unload(struct ds_ctx* _ctx)
 	}
 	pfcq_free(_ctx->wrks);
 
-	ds_close(_ctx->gc_fd);
+	ds_close(_ctx->exit_fd);
 	ds_close(_ctx->wdt_fd);
 
 	pfcq_counter_reset(&_ctx->in_flight);
