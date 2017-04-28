@@ -223,6 +223,7 @@ struct ds_wrk_ctx
 	int ev_rep_fd;
 	int ev_wdt_rep_fd;
 	int ev_gc_fd;
+	int ev_exit_fd;
 	struct ds_wrk_tsk_list prep_queue;
 	struct ds_wrk_tsk_list fwd_queue;
 	struct ds_wrk_tsk_list rep_queue;
@@ -249,7 +250,6 @@ struct ds_ctx
 	struct ds_acl_act* acl_acts;
 	int wdt_fd;
 	int tk_fd;
-	int exit_fd;
 	uint64_t req_ttl;
 	uint64_t gc_intvl;
 	struct ds_wrk_ctx** wrks;

@@ -153,18 +153,12 @@ void ds_epoll_del_fd(int _evfd, int _fd)
 		panic("epoll_ctl");
 }
 
-void ds_produce_u64_val(int _fd, uint64_t _value)
-{
-	__attribute__((unused)) int res = 0;
-
-	res = ds_write(_fd, &_value, sizeof(uint64_t));
-
-	return;
-}
-
 void ds_produce_u64(int _fd)
 {
-	ds_produce_u64_val(_fd, 1);
+	uint64_t value = 1;
+	__attribute__((unused)) int res = 0;
+
+	res = ds_write(_fd, &value, sizeof(uint64_t));
 
 	return;
 }

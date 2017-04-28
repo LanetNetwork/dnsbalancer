@@ -92,6 +92,7 @@ void* ds_wrk(void* _data)
 	data->ev_fwd_fd = ds_eventfd(0, EFD_SEMAPHORE | EFD_NONBLOCK);
 	data->ev_rep_fd = ds_eventfd(0, EFD_SEMAPHORE | EFD_NONBLOCK);
 	data->ev_wdt_rep_fd = ds_eventfd(0, EFD_SEMAPHORE | EFD_NONBLOCK);
+	data->ev_exit_fd = ds_eventfd(0, EFD_SEMAPHORE | EFD_NONBLOCK);
 	data->ev_gc_fd = ds_timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
 	ds_timerfd_settime(data->ev_gc_fd, data->ctx->gc_intvl);
 	TAILQ_INIT(&data->prep_queue);
@@ -104,9 +105,9 @@ void* ds_wrk(void* _data)
 	ds_epoll_add_fd(data->wrk_fd, data->ev_fwd_fd, EPOLLIN);
 	ds_epoll_add_fd(data->wrk_fd, data->ev_rep_fd, EPOLLIN);
 	ds_epoll_add_fd(data->wrk_fd, data->ev_wdt_rep_fd, EPOLLIN);
+	ds_epoll_add_fd(data->wrk_fd, data->ev_exit_fd, EPOLLIN);
 	ds_epoll_add_fd(data->wrk_fd, data->ev_gc_fd, EPOLLIN);
 
-	ds_epoll_add_fd(data->wrk_fd, data->ctx->exit_fd, EPOLLIN);
 	ds_epoll_add_fd(data->wrk_fd, data->ctx->wdt_fd, EPOLLIN | EPOLLEXCLUSIVE);
 	ds_epoll_add_fd(data->wrk_fd, data->ctx->tk_fd, EPOLLIN | EPOLLEXCLUSIVE);
 
@@ -132,18 +133,19 @@ void* ds_wrk(void* _data)
 	} while (likely((cur_fwd_wdt_sk = rb_t_next(&iter)) != NULL));
 	rb_destroy(data->fwd_wdt_sk_set, ds_rb_item_free);
 
-	ds_epoll_del_fd(data->wrk_fd, data->ctx->exit_fd);
 	ds_epoll_del_fd(data->wrk_fd, data->ctx->tk_fd);
 	ds_epoll_del_fd(data->wrk_fd, data->ev_prep_fd);
 	ds_epoll_del_fd(data->wrk_fd, data->ev_fwd_fd);
 	ds_epoll_del_fd(data->wrk_fd, data->ev_rep_fd);
 	ds_epoll_del_fd(data->wrk_fd, data->ev_wdt_rep_fd);
 	ds_epoll_del_fd(data->wrk_fd, data->ev_gc_fd);
+	ds_epoll_del_fd(data->wrk_fd, data->ev_exit_fd);
 
 	ds_close(data->ev_prep_fd);
 	ds_close(data->ev_fwd_fd);
 	ds_close(data->ev_rep_fd);
 	ds_close(data->ev_wdt_rep_fd);
+	ds_close(data->ev_exit_fd);
 	ds_close(data->ev_gc_fd);
 
 	pfcq_spin_done(&data->rep_queue_lock);
