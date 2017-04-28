@@ -20,11 +20,8 @@
 
 #pragma once
 
-#ifndef __GLOBAL_CONTEXT_H__
-#define __GLOBAL_CONTEXT_H__
+#include "types.h"
 
-struct db_global_context* db_global_context_load(const char* _config_file) __attribute__((nonnull(1)));
-void db_global_context_unload(struct db_global_context* _g_ctx) __attribute__((nonnull(1)));
-
-#endif /* __GLOBAL_CONTEXT_H__ */
+int ds_wrk_loop_handler(struct epoll_event _event, struct ds_wrk_ctx* _data);
+void ds_loop(ds_loop_handler_fn_t _handler, struct ds_wrk_ctx* _data);
 

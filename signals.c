@@ -18,22 +18,32 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#pragma once
+#include <signal.h>
 
-#ifndef __DNSBALANCER_H__
-#define __DNSBALANCER_H__
+#include "pfcq.h"
 
-#include <sys/socket.h>
+#include "signals.h"
 
-#if !defined(SO_REUSEPORT)
-#error "SO_REUSEPORT is undeclared (pre-3.9 Linux kernel?)"
-#endif /* !defined(SO_REUSEPORT) */
+volatile sig_atomic_t should_exit = 0;
+volatile sig_atomic_t should_reload = 0;
 
-#define APP_VERSION							"0.1.0"
-#define APP_YEAR							"2015-2017"
-#define APP_INITIAL_HOLDER					"Lanet Network"
-#define APP_PROGRAMMER						"Oleksandr Natalenko"
-#define APP_EMAIL							"oleksandr@natalenko.name"
+void ds_sigall_handler(int _signo)
+{
+	switch (_signo)
+	{
+		case SIGINT:
+		case SIGTERM:
+			if (likely(!should_exit))
+				should_exit = 1;
+			break;
+		case SIGUSR1:
+			if (likely(!should_reload))
+				should_reload = 1;
+			break;
+		default:
+			break;
+	}
 
-#endif /* __DNSBALANCER_H__ */
+	return;
+}
 

@@ -20,256 +20,245 @@
 
 #pragma once
 
-#ifndef __TYPES_H__
-#define __TYPES_H__
-
 #include <ldns/ldns.h>
-#include <microhttpd.h>
+#include <netinet/in.h>
 #include <pthread.h>
 #include <regex.h>
-#include <stdint.h>
 #include <sys/queue.h>
-#include <sys/socket.h>
-#include <uv.h>
 
-#include "defines.h"
+#include "pfcq.h"
+#include "sys.h"
 
-#include "contrib/pfcq/pfcq.h"
-
-enum db_backend_mode
+enum ds_pkt_type
 {
-	DB_BE_MODE_RR,
-	DB_BE_MODE_RANDOM,
-	DB_BE_MODE_LEAST_PKTS,
-	DB_BE_MODE_LEAST_TRAFFIC,
-	DB_BE_MODE_HASH_L3_L4,
-	DB_BE_MODE_HASH_L3,
-	DB_BE_MODE_HASH_L4
+	DS_PKT_UNK = 0,
+	DS_PKT_REQ,
+	DS_PKT_REP,
 };
 
-enum db_acl_source
+enum ds_tsk_type
 {
-	DB_ACL_SOURCE_LOCAL,
-	DB_ACL_SOURCE_MYSQL
+	DS_TSK_UNK = 0,
+	DS_TSK_REG,
+	DS_TSK_WDT,
 };
 
-enum db_acl_matcher
+enum ds_fwd_mode
 {
-	DB_ACL_MATCHER_STRICT,
-	DB_ACL_MATCHER_SUBDOMAIN,
-	DB_ACL_MATCHER_REGEX
+	DS_FWD_UNK = 0,
+	DS_FWD_RR,
+	DS_FWD_STICKY,
 };
 
-enum db_acl_rr_type
+enum ds_acl_type
 {
-	DB_ACL_RR_TYPE_ALL,
-	DB_ACL_RR_TYPE_ANY
+	DS_ACL_UNK = 0,
+	DS_ACL_LOCAL,
+	DS_ACL_MYSQL,
 };
 
-enum db_acl_action
+enum ds_acl_req_fqdn_matcher
 {
-	DB_ACL_ACTION_ALLOW,
-	DB_ACL_ACTION_DENY,
-	DB_ACL_ACTION_NXDOMAIN,
-	DB_ACL_ACTION_SET_A
+	DS_MATCHER_UNK = 0,
+	DS_MATCHER_STRICT,
+	DS_MATCHER_SUBDOMAINS,
+	DS_MATCHER_REGEX,
 };
 
-struct db_forwarder_stats
+enum ds_acl_act_kind
 {
-	uint64_t in_pkts;
-	uint64_t out_pkts;
-	uint64_t in_bytes;
-	uint64_t out_bytes;
-	uint64_t out_noerror;
-	uint64_t out_servfail;
-	uint64_t out_nxdomain;
-	uint64_t out_refused;
-	uint64_t out_other;
-	pthread_spinlock_t in_lock;
-	pthread_spinlock_t out_lock;
+	DS_ACTION_UNK = 0,
+	DS_ACTION_ACCEPT,
+	DS_ACTION_DROP,
+	DS_ACTION_NXDOMAIN,
+	DS_ACTION_SET_A,
+	// TODO: more to come?
 };
 
-struct db_forwarder
+struct ds_wrk_tsk
+{
+	TAILQ_ENTRY(ds_wrk_tsk) tailq;
+
+	char* buf;							// ]
+	ssize_t buf_size;					// | raw
+	bool redirected;					// ]
+
+	uint16_t subst_id;					// ]
+	char fqdn[HOST_NAME_MAX];			// |
+	ldns_rr_type rr_type;				// | key
+	ldns_rr_class rr_class;				// |
+	struct ds_fwd_sk* fwd_sk;			// ]
+
+	struct pfcq_net_addr addr;			// ]
+	uint16_t orig_id;					// |
+	struct ds_fe_sk* orig_fe_sk;		// |
+	struct pfcq_net_addr orig_fe_addr;	// | value
+	struct ds_fe_fwd* fe_fwd;			// |
+	struct pfcq_counter epoch;			// |
+	enum ds_tsk_type type;				// ]
+};
+
+TAILQ_HEAD(ds_wrk_tsk_list, ds_wrk_tsk);
+
+struct ds_acl
 {
 	char* name;
-	sa_family_t layer3;
-	unsigned short int alive;
-	unsigned short int fails;
-	pfcq_net_address_t address;
-	size_t check_attempts;
-	uint64_t check_timeout;
-	char* check_query;
-	struct db_forwarder_stats stats;
-	uint64_t weight;
+	enum ds_acl_type type;
+	// TODO: struct/union for additional options
+	// like MySQL DB connection etc
+	struct ds_acl_subnet* subnets;
+	size_t n_subnets;
+	struct ds_acl_req* reqs;
+	size_t n_reqs;
+	struct ds_acl_act* acts;
+	size_t n_acts;
 };
 
-struct db_backend
+struct ds_acl_subnet_item
 {
-	enum db_backend_mode mode;
-	pthread_spinlock_t queries_lock;
-	struct db_forwarder** forwarders;
-	size_t forwarders_count;
-	uint64_t queries;
-	uint64_t total_weight;
+	char* name;
+	struct pfcq_net_addr addr;
+	struct pfcq_net_addr mask;
 };
 
-struct db_frontend_stats
+struct ds_acl_subnet
 {
-	uint64_t in_pkts;
-	uint64_t out_pkts;
-	uint64_t in_pkts_invalid;
-	uint64_t in_bytes;
-	uint64_t out_bytes;
-	uint64_t out_noerror;
-	uint64_t out_servfail;
-	uint64_t out_nxdomain;
-	uint64_t out_refused;
-	uint64_t out_other;
-	uint64_t in_bytes_invalid;
-	pthread_spinlock_t in_lock;
-	pthread_spinlock_t out_lock;
-	pthread_spinlock_t in_invalid_lock;
+	char* name;
+	size_t nitems;
+	struct ds_acl_subnet_item* items;
 };
 
-struct db_set_a
+struct ds_acl_req_item
 {
-	unsigned long address4;
-	uint32_t ttl;
-};
-
-union db_acl_action_parameters
-{
-	struct db_set_a set_a;
-};
-
-struct db_list_item
-{
-	TAILQ_ENTRY(db_list_item) tailq;
-	char* s_name;
-	enum db_acl_rr_type rr_type;
-	char* s_fqdn;
-	size_t s_fqdn_length;
-	uint64_t s_fqdn_hash;
-	unsigned short int regex_compiled;
+	char* name;
+	ldns_rr_class rr_class;
+	ldns_rr_type rr_type;
+	enum ds_acl_req_fqdn_matcher matcher;
+	char* expr;
 	regex_t regex;
 };
 
-TAILQ_HEAD(db_list, db_list_item);
-
-struct db_acl_item
-{
-	TAILQ_ENTRY(db_acl_item) tailq;
-	char* s_layer3;
-	char* s_address;
-	char* s_netmask;
-	char* s_matcher;
-	char* s_list;
-	char* s_action;
-	char* s_action_parameters;
-	sa_family_t layer3;
-	pfcq_in_address_t address;
-	pfcq_in_address_t netmask;
-	enum db_acl_matcher matcher;
-	struct db_list list;
-	enum db_acl_action action;
-	union db_acl_action_parameters action_parameters;
-	pthread_spinlock_t hits_lock;
-	uint64_t hits;
-};
-
-TAILQ_HEAD(db_acl, db_acl_item);
-
-struct db_request_data
-{
-	ldns_rr_type rr_type;
-	ldns_rr_class rr_class;
-	char fqdn[HOST_NAME_MAX];
-	int forwarder_socket;
-	uint64_t hash;
-};
-
-struct db_request
-{
-	TAILQ_ENTRY(db_request) tailq;
-	uint16_t original_id;
-	struct db_request_data data;
-	pfcq_net_address_t client_address;
-	struct timespec ctime;
-	size_t forwarder_index;
-};
-
-TAILQ_HEAD(db_requests, db_request);
-
-struct db_request_bucket
-{
-	struct db_requests requests;
-	size_t requests_count;
-	pthread_mutex_t requests_lock;
-};
-
-struct db_request_list
-{
-	struct db_request_bucket list[UINT16_MAX + 1];
-	uint16_t list_index;
-	pthread_spinlock_t list_index_lock;
-	uint64_t ttl;
-	size_t requests_count;
-	pthread_spinlock_t requests_count_lock;
-};
-
-struct db_frontend
+struct ds_acl_req
 {
 	char* name;
-	pfcq_net_address_t address;
-	size_t dns_max_packet_length;
-	uv_thread_t* workers_pool;
-	struct db_worker** workers;
-	int workers_count;
-	enum db_acl_source acl_source;
-	sa_family_t layer3;
-	struct db_global_context* g_ctx;
-	struct db_local_context* l_ctx;
-	struct db_backend backend;
-	struct db_frontend_stats stats;
-	struct db_acl acl;
+	size_t nitems;
+	struct ds_acl_req_item* items;
 };
 
-struct db_global_context
+struct ds_acl_act_item
 {
-	struct db_request_list db_requests;
-	uv_thread_t* gc_pool;
-	uint64_t db_gc_interval;
-	int gc_eventfd;
-	uint64_t reload_retry;
+	char* name;
+	enum ds_acl_act_kind act;
+	// TODO: union for action parms
 };
 
-struct db_latency_stats
+struct ds_acl_act
 {
-	uint64_t lats[DB_LATENCY_BUCKETS];
-	pthread_spinlock_t lats_lock[DB_LATENCY_BUCKETS];
+	char* name;
+	size_t nitems;
+	struct ds_acl_act_item* items;
 };
 
-struct db_local_context
+struct ds_fe
 {
-	struct db_global_context* global_context;
-	struct db_frontend** frontends;
-	size_t frontends_count;
-	uv_thread_t* watchdog_pool;
-	uint64_t db_watchdog_interval;
-	int watchdog_eventfd;
-	unsigned short int stats_enabled;
-	sa_family_t stats_layer3_family;
-	pfcq_net_address_t stats_address;
-	struct MHD_Daemon* mhd_daemon;
-	struct db_latency_stats db_lats;
+	char* name;
+	struct pfcq_net_addr addr;
+	int dscp;
+	enum ds_fwd_mode fwd_mode;
+	struct ds_fe_fwd* fe_fwds;
+	size_t nfefwds;
+	struct pfcq_counter c_fwd;
 };
 
-struct db_worker
+struct ds_fwd
 {
-	struct db_frontend* frontend;
-	uv_thread_t id;
-	int eventfd;
+	char* name;							// ] meta
+
+	struct pfcq_net_addr addr;			// ]
+	int reg_dscp;						// | net
+	int wdt_dscp;						// ]
+
+	struct pfcq_counter c_q_id;			// ] DNS query ID
+
+	char* wdt_query;					// ]
+	struct pfcq_counter wdt_pending;	// | watchdog
+	size_t wdt_tries;					// |
+	bool alive;							// ]
 };
 
-#endif /* __TYPES_H__ */
+struct ds_fe_sk
+{
+	int sk;
+	struct ds_fe* fe;
+};
+
+struct ds_fwd_sk
+{
+	int sk;
+	struct ds_fwd* fwd;
+};
+
+struct ds_fe_fwd
+{
+	struct ds_fwd* fwd;
+};
+
+struct ds_wrk_ctx
+{
+	struct ds_ctx* ctx;					// ]
+	size_t index;						// | meta
+	pthread_t id;						// ]
+
+	int ready;
+
+	struct rb_table* tracking;
+	struct rb_table* fe_sk_set;
+	struct rb_table* fwd_sk_set;
+	struct rb_table* fwd_wdt_sk_set;
+	int poll_timeo;
+	int wrk_fd;
+
+	int notify_exit_fd;
+
+	int ev_prep_fd;
+	int ev_fwd_fd;
+	int ev_rep_fd;
+	int ev_wdt_rep_fd;
+	struct ds_wrk_tsk_list prep_queue;
+	struct ds_wrk_tsk_list fwd_queue;
+	struct ds_wrk_tsk_list rep_queue;
+	pthread_spinlock_t rep_queue_lock;
+	struct ds_wrk_tsk_list wdt_rep_queue;
+	pthread_spinlock_t wdt_rep_queue_lock;
+};
+
+struct ds_ctx
+{
+	bool redirect;
+	struct ds_ctx* ctx_next;
+	size_t max_pkt_size;
+	struct ds_fe* fes;
+	size_t nfes;
+	struct ds_fwd* fwds;
+	size_t nfwds;
+	size_t nacls;
+	size_t n_acl_subnets;
+	struct ds_acl_subnet* acl_subnets;
+	size_t n_acl_reqs;
+	struct ds_acl_req* acl_reqs;
+	size_t n_acl_acts;
+	struct ds_acl_act* acl_acts;
+	int gc_fd;
+	int wdt_fd;
+	int tk_fd;
+	uint64_t req_ttl;
+	struct ds_wrk_ctx** wrks;
+	size_t nwrks;
+	int poll_timeo;
+	struct pfcq_counter epoch;
+	uint64_t epoch_size;
+	struct pfcq_counter in_flight;
+};
+
+typedef int (*ds_loop_handler_fn_t)(struct epoll_event, struct ds_wrk_ctx*);
 

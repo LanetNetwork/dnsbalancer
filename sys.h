@@ -20,15 +20,18 @@
 
 #pragma once
 
-#ifndef __ACL_H__
-#define __ACL_H__
+#ifdef DS_HAVE_ATOMICS
+#include <stdatomic.h>
+#else /* DS_HAVE_ATOMICS */
+#include <atomic_ops.h>
+#endif /* DS_HAVE_ATOMICS */
 
-#include "types.h"
+#include <sys/epoll.h>
+#ifndef DS_HAVE_UAPI_EPOLLEXCLUSIVE
+#define EPOLLEXCLUSIVE (1u << 28)
+#endif /* DS_HAVE_UAPI_EPOLLEXCLUSIVE */
 
-void db_acl_free_item(struct db_acl_item* _item) __attribute__((nonnull(1)));
-void db_acl_free_list_item(struct db_list_item* _item) __attribute__((nonnull(1)));
-enum db_acl_action db_check_query_acl(sa_family_t _layer3, pfcq_net_address_t* _address, struct db_request_data* _request_data, struct db_acl* _acl,
-	void** _acl_data, size_t* _acl_data_length) __attribute__((nonnull(2, 3, 4, 5, 6)));
-
-#endif /* __ACL_H__ */
+#ifndef DS_HAVE_UAPI_SO_REUSEPORT
+#define SO_REUSEPORT 15
+#endif /* DS_HAVE_UAPI_SO_REUSEPORT */
 

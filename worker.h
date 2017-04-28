@@ -20,10 +20,7 @@
 
 #pragma once
 
-#ifndef __WORKER_H__
-#define __WORKER_H__
+#include "types.h"
 
-void db_worker(void* _data) __attribute__((nonnull(1)));
-
-#endif /* __WORKER_H__ */
+void* ds_wrk(void* _data);
 

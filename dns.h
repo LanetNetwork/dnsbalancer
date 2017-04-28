@@ -20,14 +20,10 @@
 
 #pragma once
 
-#ifndef __ACL_LOCAL_H__
-#define __ACL_LOCAL_H__
-
-#include "config.h"
 #include "types.h"
 
-void db_acl_local_load(db_config_t* _config, const char* _acl_name, struct db_acl* _acl) __attribute__((nonnull(1, 2, 3)));
-void db_acl_local_unload(struct db_acl* _acl) __attribute__((nonnull(1)));
-
-#endif /* __ACL_LOCAL_H__ */
+int ds_tsk_buf_parse(struct ds_wrk_ctx* _wrk_ctx,
+					 struct ds_wrk_tsk* _tsk,
+					 enum ds_pkt_type _pkt_type) __attribute__((warn_unused_result));
+void ds_tsk_get_fwd(struct ds_wrk_tsk* _tsk, struct rb_table* _fwd_sk_set);
 
