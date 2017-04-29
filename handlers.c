@@ -169,6 +169,12 @@ int ds_wrk_obt_handler(struct ds_fwd_sk* _fwd_sk, struct ds_wrk_ctx* _data)
 	// TODO: choose worker, RR likely
 	wrk_next = tsk->redirected ? _data->ctx->ctx_next->wrks[0] : _data;
 
+	if (tsk->redirected)
+	{
+		pfcq_counter_dec(&_data->ctx->in_flight);
+		pfcq_counter_inc(&_data->ctx->ctx_next->in_flight);
+	}
+
 	if (likely(tsk->type == DS_TSK_REG))
 	{
 		// response to client query
@@ -185,12 +191,6 @@ int ds_wrk_obt_handler(struct ds_fwd_sk* _fwd_sk, struct ds_wrk_ctx* _data)
 		ds_produce_u64(wrk_next->ev_wdt_rep_fd);
 	} else
 		panic("Unknown task type");
-
-	if (tsk->redirected)
-	{
-		pfcq_counter_dec(&_data->ctx->in_flight);
-		pfcq_counter_inc(&_data->ctx->ctx_next->in_flight);
-	}
 
 	goto out;
 
