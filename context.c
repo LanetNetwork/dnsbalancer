@@ -436,6 +436,8 @@ struct ds_ctx* ds_ctx_load(const char* _config_file)
 
 void ds_ctx_unload(struct ds_ctx* _ctx)
 {
+	for (size_t i = 0; i < _ctx->nwrks; i++)
+		ds_produce_u64(_ctx->wrks[i]->ev_exit_fd);
 
 	for (size_t i = 0; i < _ctx->nwrks; i++)
 	{

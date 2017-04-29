@@ -140,9 +140,6 @@ int main(int _argc, char** _argv)
 
 		if (should_exit)
 		{
-			for (size_t i = 0; i < ctx->nwrks; i++)
-				ds_produce_u64(ctx->wrks[i]->ev_exit_fd);
-
 			ds_ctx_unload(ctx);
 
 			goto out;
@@ -154,9 +151,6 @@ int main(int _argc, char** _argv)
 
 			ctx->ctx_next = ctx_next;
 			ctx->redirect = true;
-
-			for (size_t i = 0; i < ctx->nwrks; i++)
-				ds_produce_u64(ctx->wrks[i]->ev_exit_fd);
 
 			ds_ctx_unload(ctx);
 
