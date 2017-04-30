@@ -235,6 +235,7 @@ struct ds_wrk_ctx
 struct ds_ctx
 {
 	bool redirect;
+	struct pfcq_counter c_redirect_wrk;
 	struct ds_ctx* ctx_next;
 	size_t max_pkt_size;
 	struct ds_fe* fes;

@@ -126,6 +126,7 @@ int ds_wrk_obt_handler(struct ds_fwd_sk* _fwd_sk, struct ds_wrk_ctx* _data)
 	struct ds_wrk_tsk* tsk = NULL;
 	struct ds_wrk_tsk* found = NULL;
 	struct ds_wrk_ctx* wrk_next = NULL;
+	size_t wrk_idx_next = 0;
 
 	pfcq_counter_inc(&_data->ctx->in_flight);
 
@@ -166,14 +167,16 @@ int ds_wrk_obt_handler(struct ds_fwd_sk* _fwd_sk, struct ds_wrk_ctx* _data)
 	ds_tsk_free(found);
 
 	tsk->redirected = _data->ctx->redirect;
-	// TODO: choose worker, RR likely
-	wrk_next = tsk->redirected ? _data->ctx->ctx_next->wrks[0] : _data;
-
 	if (tsk->redirected)
 	{
+		wrk_idx_next = pfcq_counter_get_inc_mod(&_data->ctx->ctx_next->c_redirect_wrk,
+											_data->ctx->ctx_next->nwrks, 0);
+		wrk_next = _data->ctx->ctx_next->wrks[wrk_idx_next];
+
 		pfcq_counter_dec(&_data->ctx->in_flight);
 		pfcq_counter_inc(&_data->ctx->ctx_next->in_flight);
-	}
+	} else
+		wrk_next = _data;
 
 	if (likely(tsk->type == DS_TSK_REG))
 	{

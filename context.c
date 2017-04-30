@@ -413,6 +413,8 @@ struct ds_ctx* ds_ctx_load(const char* _config_file)
 								   DS_CFG_KEY_GC_INTVL,
 								   DS_CFG_DEFAULT_GC_INTVL) * 1000000ULL;
 
+	pfcq_counter_init(&ret->c_redirect_wrk);
+
 	ret->nwrks = pfcq_hint_cpus(ds_cfg_get_int(cfg, DS_CFG_SECTION_GENERAL, DS_CFG_KEY_WRKS, DS_CFG_DEFAULT_WRKS));
 	ret->wrks = pfcq_alloc(ret->nwrks * sizeof(struct ds_wrk_ctx*));
 	for (size_t i = 0; i < ret->nwrks; i++)
@@ -438,6 +440,8 @@ void ds_ctx_unload(struct ds_ctx* _ctx)
 {
 	for (size_t i = 0; i < _ctx->nwrks; i++)
 		ds_produce_u64(_ctx->wrks[i]->ev_exit_fd);
+
+	pfcq_counter_reset(&_ctx->c_redirect_wrk);
 
 	for (size_t i = 0; i < _ctx->nwrks; i++)
 	{
