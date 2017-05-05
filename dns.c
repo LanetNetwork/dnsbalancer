@@ -126,6 +126,7 @@ void ds_tsk_get_fwd(struct ds_wrk_tsk* _tsk, struct rb_table* _fwd_sk_set)
 			break;
 		}
 	} while (likely((cur_fwd_sk = rb_t_next(&iter)) != NULL));
+	_tsk->fwd_sk_addr = _tsk->fwd_sk->fwd->addr;
 
 	return;
 }

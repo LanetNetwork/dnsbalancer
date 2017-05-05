@@ -162,6 +162,7 @@ int ds_wrk_obt_handler(struct ds_fwd_sk* _fwd_sk, struct ds_wrk_ctx* _data)
 	tsk->orig_fe_sk = found->orig_fe_sk;
 	tsk->orig_fe_addr = found->orig_fe_addr;
 	tsk->fe_fwd = found->fe_fwd;
+	tsk->fwd_sk_addr = found->fwd_sk_addr;
 
 	pfcq_counter_reset(&found->epoch);
 	ds_tsk_free(found);
@@ -225,7 +226,7 @@ int ds_wrk_rep_handler(int _fd, struct ds_wrk_ctx* _data)
 		rb_t_init(&iter, _data->fe_sk_set);
 		cur = rb_t_first(&iter, _data->fe_sk_set);
 		do {
-			if (pfcq_net_addr_cmp(&cur->fe->addr, &tsk->orig_fe_addr))
+			if (pfcq_net_addr_port_cmp(&cur->fe->addr, &tsk->orig_fe_addr))
 			{
 				sk = cur->sk;
 				found = true;
@@ -392,6 +393,7 @@ int ds_wrk_wdt_req_handler(int _fd, struct ds_wrk_ctx* _data)
 
 		tsk->type = DS_TSK_WDT;
 		tsk->fwd_sk = cur_fwd_wdt_sk;
+		tsk->fwd_sk_addr = tsk->fwd_sk->fwd->addr;
 
 		if (unlikely(ds_tsk_buf_parse(_data, tsk, DS_PKT_REQ) == -1))
 		{
@@ -419,6 +421,7 @@ ok:
 int ds_wrk_wdt_rep_handler(int _fd, struct ds_wrk_ctx* _data)
 {
 	struct ds_wrk_tsk* tsk = NULL;
+	struct ds_fwd_sk* fwd_wdt_sk = NULL;
 
 	ds_consume_u64(_fd);
 
@@ -427,13 +430,38 @@ int ds_wrk_wdt_rep_handler(int _fd, struct ds_wrk_ctx* _data)
 	TAILQ_REMOVE(&_data->wdt_rep_queue, tsk, tailq);
 	pfcq_spin_unlock(&_data->wdt_rep_queue_lock);
 
-	pfcq_counter_reset(&tsk->fwd_sk->fwd->wdt_pending);
-	if (unlikely(!tsk->fwd_sk->fwd->alive))
+	if (unlikely(tsk->redirected))
 	{
-		tsk->fwd_sk->fwd->alive = true;
-		verbose("Forwarder %s became reachable\n", tsk->fwd_sk->fwd->name);
+		struct rb_traverser iter;
+		struct ds_fwd_sk* cur = NULL;
+		bool found = false;
+
+		rb_t_init(&iter, _data->fwd_wdt_sk_set);
+		cur = rb_t_first(&iter, _data->fwd_wdt_sk_set);
+		do {
+			if (pfcq_net_addr_cmp(&cur->fwd->addr, &tsk->fwd_sk_addr))
+			{
+				fwd_wdt_sk = cur;
+				found = true;
+				break;
+			}
+		} while (likely((cur = rb_t_next(&iter)) != NULL));
+
+		if (!found)
+			goto out;
+	} else
+	{
+		fwd_wdt_sk = tsk->fwd_sk;
 	}
 
+	pfcq_counter_reset(&fwd_wdt_sk->fwd->wdt_pending);
+	if (unlikely(!fwd_wdt_sk->fwd->alive))
+	{
+		fwd_wdt_sk->fwd->alive = true;
+		verbose("Forwarder %s became reachable\n", fwd_wdt_sk->fwd->name);
+	}
+
+out:
 	ds_tsk_free(tsk);
 
 	pfcq_counter_dec(&_data->ctx->in_flight);

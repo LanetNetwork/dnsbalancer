@@ -87,7 +87,8 @@ struct ds_wrk_tsk
 	char fqdn[HOST_NAME_MAX];			// |
 	ldns_rr_type rr_type;				// | key
 	ldns_rr_class rr_class;				// |
-	struct ds_fwd_sk* fwd_sk;			// ]
+	struct ds_fwd_sk* fwd_sk;			// |
+	struct pfcq_net_addr fwd_sk_addr;	// ]
 
 	struct pfcq_net_addr addr;			// ]
 	uint16_t orig_id;					// |

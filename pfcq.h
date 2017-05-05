@@ -129,6 +129,7 @@ void pfcq_spin_done(pthread_spinlock_t* _lock);
 uint64_t pfcq_fast_hash(const uint8_t* _data, size_t _data_size, uint64_t _seed) __attribute__((warn_unused_result));
 
 bool pfcq_net_addr_cmp(struct pfcq_net_addr* _na1, struct pfcq_net_addr* _na2) __attribute__((warn_unused_result));
+bool pfcq_net_addr_port_cmp(struct pfcq_net_addr* _na1, struct pfcq_net_addr* _na2) __attribute__((warn_unused_result));
 
 void pfcq_counter_init(struct pfcq_counter* _counter);
 void pfcq_counter_reset(struct pfcq_counter* _counter);
