@@ -431,26 +431,6 @@ bool pfcq_net_addr_cmp(struct pfcq_net_addr* _na1, struct pfcq_net_addr* _na2)
 		switch (_na1->family)
 		{
 			case AF_INET:
-				return _na1->addr.ip4.sin_addr.s_addr == _na2->addr.ip4.sin_addr.s_addr;
-				break;
-			case AF_INET6:
-				return _na1->addr.ip6.sin6_addr.s6_addr == _na2->addr.ip6.sin6_addr.s6_addr;
-				break;
-			default:
-				panic("Unknown address family");
-				break;
-		}
-	} else
-		return false;
-}
-
-bool pfcq_net_addr_port_cmp(struct pfcq_net_addr* _na1, struct pfcq_net_addr* _na2)
-{
-	if (_na1->family == _na2->family)
-	{
-		switch (_na1->family)
-		{
-			case AF_INET:
 				return ((_na1->addr.ip4.sin_addr.s_addr == _na2->addr.ip4.sin_addr.s_addr) &&
 						(_na1->addr.ip4.sin_port == _na2->addr.ip4.sin_port));
 				break;

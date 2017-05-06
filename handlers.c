@@ -226,7 +226,7 @@ int ds_wrk_rep_handler(int _fd, struct ds_wrk_ctx* _data)
 		rb_t_init(&iter, _data->fe_sk_set);
 		cur = rb_t_first(&iter, _data->fe_sk_set);
 		do {
-			if (pfcq_net_addr_port_cmp(&cur->fe->addr, &tsk->orig_fe_addr))
+			if (pfcq_net_addr_cmp(&cur->fe->addr, &tsk->orig_fe_addr))
 			{
 				sk = cur->sk;
 				found = true;
