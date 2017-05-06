@@ -47,8 +47,8 @@ int ds_wrk_acpt_handler(struct ds_fe_sk* _fe_sk, struct ds_wrk_ctx* _data)
 	// save frontend address separately
 	// in case response will be redirected
 	// through new context on reload
-	tsk->orig_fe_addr = _fe_sk->fe->addr;
 	tsk->orig_fe_sk = _fe_sk;
+	tsk->orig_fe_addr = tsk->orig_fe_sk->fe->addr;
 
 	TAILQ_INSERT_TAIL(&_data->prep_queue, tsk, tailq);
 	ds_produce_u64(_data->ev_prep_fd);
