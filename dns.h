@@ -22,6 +22,7 @@
 
 #include "types.h"
 
+bool ds_tsk_buf_to_pkt(struct ds_wrk_tsk* _tsk) __attribute__((warn_unused_result));
 int ds_tsk_buf_parse(struct ds_wrk_ctx* _wrk_ctx,
 					 struct ds_wrk_tsk* _tsk,
 					 enum ds_pkt_type _pkt_type) __attribute__((warn_unused_result));

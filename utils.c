@@ -68,6 +68,8 @@ void ds_rb_item_free(void* _rb_item, void* _rb_param)
 
 void ds_tsk_free(struct ds_wrk_tsk* _tsk)
 {
+	if (likely(_tsk->pkt))
+		ldns_pkt_free(_tsk->pkt);
 	pfcq_free(_tsk->buf);
 	pfcq_free(_tsk);
 

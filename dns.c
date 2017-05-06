@@ -23,18 +23,22 @@
 
 #include "dns.h"
 
+bool ds_tsk_buf_to_pkt(struct ds_wrk_tsk* _tsk)
+{
+	if (unlikely(ldns_wire2pkt(&_tsk->pkt, (const uint8_t*)_tsk->buf, _tsk->buf_size) != LDNS_STATUS_OK))
+		return false;
+
+	return true;
+}
+
 int ds_tsk_buf_parse(struct ds_wrk_ctx* _wrk_ctx, struct ds_wrk_tsk* _tsk, enum ds_pkt_type _pkt_type)
 {
 	char* owner_str = NULL;
 	ldns_rr* rr = NULL;
 	ldns_rdf* owner = NULL;
-	ldns_pkt* packet = NULL;
 	struct ds_fwd* fwd = NULL;
 
-	if (unlikely(ldns_wire2pkt(&packet, (const uint8_t*)_tsk->buf, _tsk->buf_size) != LDNS_STATUS_OK))
-		return -1;
-
-	rr = ldns_rr_list_rr(ldns_pkt_question(packet), 0);
+	rr = ldns_rr_list_rr(ldns_pkt_question(_tsk->pkt), 0);
 	_tsk->rr_type = ldns_rr_get_type(rr);
 	_tsk->rr_class = ldns_rr_get_class(rr);
 	owner = ldns_rr_owner(rr);
@@ -46,7 +50,7 @@ int ds_tsk_buf_parse(struct ds_wrk_ctx* _wrk_ctx, struct ds_wrk_tsk* _tsk, enum 
 	switch (_pkt_type)
 	{
 		case DS_PKT_REQ:
-			_tsk->orig_id = htons(ldns_pkt_id(packet));
+			_tsk->orig_id = htons(ldns_pkt_id(_tsk->pkt));
 			switch (_tsk->type)
 			{
 				case DS_TSK_REG:
@@ -65,14 +69,12 @@ int ds_tsk_buf_parse(struct ds_wrk_ctx* _wrk_ctx, struct ds_wrk_tsk* _tsk, enum 
 			pfcq_counter_set(&_tsk->epoch, pfcq_counter_get(&_wrk_ctx->ctx->epoch));
 			break;
 		case DS_PKT_REP:
-			_tsk->subst_id = htons(ldns_pkt_id(packet));
+			_tsk->subst_id = htons(ldns_pkt_id(_tsk->pkt));
 			break;
 		default:
 			panic("Unknown packet type");
 			break;
 	}
-
-	ldns_pkt_free(packet);
 
 	return 0;
 }

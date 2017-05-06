@@ -79,9 +79,11 @@ struct ds_wrk_tsk
 {
 	TAILQ_ENTRY(ds_wrk_tsk) tailq;
 
+	bool redirected;					// ] meta
+
 	char* buf;							// ]
 	ssize_t buf_size;					// | raw
-	bool redirected;					// ]
+	ldns_pkt* pkt;						// ]
 
 	uint16_t subst_id;					// ]
 	char fqdn[HOST_NAME_MAX];			// |

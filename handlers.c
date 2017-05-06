@@ -71,6 +71,12 @@ int ds_wrk_prep_handler(int _fd, struct ds_wrk_ctx* _data)
 	tsk = TAILQ_FIRST(&_data->prep_queue);
 	TAILQ_REMOVE(&_data->prep_queue, tsk, tailq);
 
+	if (unlikely(!ds_tsk_buf_to_pkt(tsk)))
+	{
+		ds_tsk_free(tsk);
+		goto err;
+	}
+
 	// TODO: filtering/acls
 
 	ds_tsk_get_fwd(tsk, _data->fwd_sk_set);
@@ -134,6 +140,12 @@ int ds_wrk_obt_handler(struct ds_fwd_sk* _fwd_sk, struct ds_wrk_ctx* _data)
 	tsk->buf = pfcq_alloc(_data->ctx->max_pkt_size);
 	tsk->buf_size = ds_recv(_fwd_sk->sk, tsk->buf, _data->ctx->max_pkt_size);
 	if (unlikely(tsk->buf_size == -1))
+	{
+		ds_tsk_free(tsk);
+		goto err;
+	}
+
+	if (unlikely(!ds_tsk_buf_to_pkt(tsk)))
 	{
 		ds_tsk_free(tsk);
 		goto err;
@@ -339,12 +351,9 @@ int ds_wrk_gc_handler(int _fd, struct ds_wrk_ctx* _data)
 
 int ds_wrk_wdt_req_handler(int _fd, struct ds_wrk_ctx* _data)
 {
-	ldns_pkt* pkt = NULL;
 	ldns_rr* rr = NULL;
 	int push_res = -1;
-	size_t buf_size = 0;
 	struct ds_wrk_tsk* tsk = NULL;
-	uint8_t* buf = NULL;
 	struct ds_fwd_sk* cur_fwd_wdt_sk = NULL;
 	struct rb_traverser iter;
 
@@ -367,39 +376,32 @@ int ds_wrk_wdt_req_handler(int _fd, struct ds_wrk_ctx* _data)
 
 		pfcq_counter_inc(&_data->ctx->in_flight);
 
-		pkt = ldns_pkt_new();
-		if (unlikely(!pkt))
+		tsk = pfcq_alloc(sizeof(struct ds_wrk_tsk));
+
+		tsk->pkt = ldns_pkt_new();
+		if (unlikely(!tsk->pkt))
 			goto fail;
 
-		ldns_pkt_set_random_id(pkt);
-		ldns_pkt_set_qr(pkt, 0);
-		ldns_pkt_set_opcode(pkt, LDNS_PACKET_QUERY);
-		ldns_pkt_set_tc(pkt, 0);
-		ldns_pkt_set_rd(pkt, 1);
+		ldns_pkt_set_random_id(tsk->pkt);
+		ldns_pkt_set_qr(tsk->pkt, 0);
+		ldns_pkt_set_opcode(tsk->pkt, LDNS_PACKET_QUERY);
+		ldns_pkt_set_tc(tsk->pkt, 0);
+		ldns_pkt_set_rd(tsk->pkt, 1);
 		if (unlikely(ldns_rr_new_question_frm_str(&rr, cur_fwd_wdt_sk->fwd->wdt_query, NULL, NULL) != LDNS_STATUS_OK))
 			goto fail;
-		push_res = ldns_pkt_push_rr(pkt, LDNS_SECTION_QUESTION, rr);
+		push_res = ldns_pkt_push_rr(tsk->pkt, LDNS_SECTION_QUESTION, rr);
 		if (unlikely(push_res != LDNS_STATUS_OK && push_res != LDNS_STATUS_EMPTY_LABEL))
 			goto fail;
 
-		tsk = pfcq_alloc(sizeof(struct ds_wrk_tsk));
-		tsk->buf = pfcq_alloc(_data->ctx->max_pkt_size);
-		if (unlikely(ldns_pkt2wire(&buf, pkt, &buf_size) != LDNS_STATUS_OK))
+		if (unlikely(ldns_pkt2wire((uint8_t**)&tsk->buf, tsk->pkt, (size_t*)&tsk->buf_size) != LDNS_STATUS_OK))
 			goto fail;
-		ldns_pkt_free(pkt);
-		memcpy(tsk->buf, buf, buf_size);
-		free(buf);
-		tsk->buf_size = buf_size;
 
 		tsk->type = DS_TSK_WDT;
 		tsk->fwd_sk = cur_fwd_wdt_sk;
 		tsk->fwd_sk_addr = tsk->fwd_sk->fwd->addr;
 
 		if (unlikely(ds_tsk_buf_parse(_data, tsk, DS_PKT_REQ) == -1))
-		{
-			ds_tsk_free(tsk);
 			goto fail;
-		}
 
 		pfcq_counter_inc(&tsk->fwd_sk->fwd->wdt_pending);
 
@@ -409,6 +411,7 @@ int ds_wrk_wdt_req_handler(int _fd, struct ds_wrk_ctx* _data)
 		goto ok;
 
 fail:
+		ds_tsk_free(tsk);
 		pfcq_counter_dec(&_data->ctx->in_flight);
 
 ok:
