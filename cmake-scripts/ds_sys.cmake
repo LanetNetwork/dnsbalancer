@@ -9,6 +9,8 @@ if (PKG_CONFIG_FOUND)
 			set(GB_LD_EXTRA "${LIBTCMALLOC_MINIMAL_LIBRARIES}")
 		endif (LIBTCMALLOC_MINIMAL_FOUND EQUAL 1)
 	endif(NOT CMAKE_BUILD_TYPE MATCHES Debug)
+else (PKG_CONFIG_FOUND)
+	message(FATAL_ERROR "pkg-config is missing. Unable to continue. Please install it.")
 endif (PKG_CONFIG_FOUND)
 
 include(CheckSymbolExists)
