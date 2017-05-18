@@ -90,7 +90,7 @@ void __pfcq_debug(int _direct, const char* _format, ...) __attribute__((format(p
 void __pfcq_warning(const char* _message, const int _errno, const char* _file, int _line, int _direct);
 void __pfcq_fail(const char* _message, const int _errno);
 void __pfcq_stop(const int _exit_code, const char* _message) __attribute__((noreturn));
-void __pfcq_panic(const char* _message, const int _errno, const char* _file, int _line);
+void __pfcq_panic(const char* _message, const int _errno, const char* _file, int _line) __attribute__((noreturn));
 void pfcq_debug_init(int _verbose, int _debug, int _syslog);
 void pfcq_debug_done(void);
 
