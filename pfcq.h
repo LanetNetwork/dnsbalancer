@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <sys/time.h>
+#include <sysexits.h>
 #include <time.h>
 
 #include "sys.h"

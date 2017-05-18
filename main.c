@@ -29,7 +29,6 @@
 
 #include <getopt.h>
 #include <signal.h>
-#include <sysexits.h>
 
 #include "types.h"
 
