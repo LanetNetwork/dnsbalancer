@@ -121,16 +121,17 @@ void __pfcq_fail(const char* _message, const int _errno)
 	return;
 }
 
-void __pfcq_stop(const char* _message)
+void __pfcq_stop(const int _exit_code, const char* _message)
 {
-	__pfcq_debug(1, "%s\n", _message);
-	exit(EX_SOFTWARE);
+	if (likely(_message))
+		__pfcq_debug(1, "%s\n", _message);
+	exit(_exit_code);
 }
 
 void __pfcq_panic(const char* _message, const int _errno, const char* _file, int _line)
 {
 	__pfcq_warning(_message, _errno, _file, _line, 0);
-	exit(EX_SOFTWARE);
+	__pfcq_stop(EX_SOFTWARE, NULL);
 }
 
 void pfcq_debug_init(int _verbose, int _debug, int _syslog)
