@@ -25,6 +25,7 @@
  * - weighted RR distribution
  * - JSON stats over HTTP
  * - HTTP RPC
+ * - https://tools.ietf.org/html/rfc7871
  */
 
 #include <getopt.h>
