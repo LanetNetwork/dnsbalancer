@@ -29,18 +29,15 @@
 
 #include <getopt.h>
 #include <signal.h>
+#include <sys/signalfd.h>
 #include <sysexits.h>
 
 #include "types.h"
 
 #include "context.h"
 #include "pfcq.h"
-#include "signals.h"
 #include "utils.h"
 #include "worker.h"
-
-extern sig_atomic_t should_exit;
-extern sig_atomic_t should_reload;
 
 int main(int _argc, char** _argv)
 {
@@ -49,9 +46,9 @@ int main(int _argc, char** _argv)
 	int be_verbose = 0;
 	int do_debug = 0;
 	int use_syslog = 0;
+	int sfd = -1;
 	char* pid_file = NULL;
 	char* config_file = NULL;
-	struct sigaction ds_sigaction;
 	sigset_t ds_newmask;
 	sigset_t ds_oldmask;
 	struct ds_ctx* ctx = NULL;
@@ -67,7 +64,6 @@ int main(int _argc, char** _argv)
 		{0, 0, 0, 0}
 	};
 
-	pfcq_zero(&ds_sigaction, sizeof(struct sigaction));
 	pfcq_zero(&ds_newmask, sizeof(sigset_t));
 	pfcq_zero(&ds_oldmask, sizeof(sigset_t));
 
@@ -119,49 +115,54 @@ int main(int _argc, char** _argv)
 			panic("fclose");
 	}
 
-	ds_sigaction.sa_handler = ds_sigall_handler;
-	sigemptyset(&ds_sigaction.sa_mask);
-	ds_sigaction.sa_flags = 0;
-	sigaction(SIGTERM, &ds_sigaction, NULL);
-	sigaction(SIGINT, &ds_sigaction, NULL);
-	sigaction(SIGUSR1, &ds_sigaction, NULL);
 	sigemptyset(&ds_newmask);
 	sigaddset(&ds_newmask, SIGTERM);
 	sigaddset(&ds_newmask, SIGINT);
 	sigaddset(&ds_newmask, SIGUSR1);
 	pthread_sigmask(SIG_BLOCK, &ds_newmask, &ds_oldmask);
 
+	sfd = signalfd(-1, &ds_newmask, 0);
+	if (unlikely(sfd == -1))
+		panic("signalfd");
+
 	// context
 	ctx = ds_ctx_load(config_file);
 
 	while (true)
 	{
-		sigsuspend(&ds_oldmask);
+		struct signalfd_siginfo si;
+		ssize_t res = -1;
 
-		if (should_exit)
+		pfcq_zero(&si, sizeof(struct signalfd_siginfo));
+
+		res = ds_read(sfd, &si, sizeof(struct signalfd_siginfo));
+		if (unlikely(res == -1 || res != sizeof(struct signalfd_siginfo)))
+			panic("ds_read");
+
+		switch (si.ssi_signo)
 		{
-			ds_ctx_unload(ctx);
+			case SIGINT:
+			case SIGTERM:
+				ds_ctx_unload(ctx);
+				goto out;
+			case SIGUSR1:
+				ctx_next = ds_ctx_load(config_file);
 
-			goto out;
-		}
+				ctx->ctx_next = ctx_next;
+				ctx->redirect = true;
 
-		if (should_reload)
-		{
-			ctx_next = ds_ctx_load(config_file);
+				ds_ctx_unload(ctx);
 
-			ctx->ctx_next = ctx_next;
-			ctx->redirect = true;
+				ctx = ctx_next;
 
-			ds_ctx_unload(ctx);
-
-			ctx = ctx_next;
-
-			should_reload = 0;
-			continue;
+				continue;
+			default:
+				panic("Unknown signal");
 		}
 	}
 
 out:
+	ds_close(sfd);
 	pthread_sigmask(SIG_UNBLOCK, &ds_newmask, NULL);
 
 	verbose("%s\n", "Ciao.");

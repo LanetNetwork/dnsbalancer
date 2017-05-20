@@ -15,7 +15,6 @@ add_executable(dnsbalancer
 	main.c
 	pfcq.c
 	rb.c
-	signals.c
 	utils.c
 	worker.c)
 
