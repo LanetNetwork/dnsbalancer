@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <sys/time.h>
+#include <sysexits.h>
 #include <time.h>
 
 #include "sys.h"
@@ -44,7 +45,7 @@
 
 #define warning(A)				__pfcq_warning(A, errno, __FILE__, __LINE__, 1)
 #define fail(A)					__pfcq_fail(A, errno)
-#define stop(A)					__pfcq_stop(A)
+#define stop(A)					__pfcq_stop(EX_SOFTWARE, A)
 #define panic(A)				__pfcq_panic(A, errno, __FILE__, __LINE__)
 
 #define pfcq_zero(A, B)			pfcq_memset_g(A, 0, B)
@@ -88,7 +89,7 @@ struct pfcq_counter
 void __pfcq_debug(int _direct, const char* _format, ...) __attribute__((format(printf, 2, 3)));
 void __pfcq_warning(const char* _message, const int _errno, const char* _file, int _line, int _direct);
 void __pfcq_fail(const char* _message, const int _errno);
-void __pfcq_stop(const char* _message) __attribute__((noreturn));
+void __pfcq_stop(const int _exit_code, const char* _message) __attribute__((noreturn));
 void __pfcq_panic(const char* _message, const int _errno, const char* _file, int _line) __attribute__((noreturn));
 void pfcq_debug_init(int _verbose, int _debug, int _syslog);
 void pfcq_debug_done(void);

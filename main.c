@@ -25,12 +25,12 @@
  * - weighted RR distribution
  * - JSON stats over HTTP
  * - HTTP RPC
+ * - https://tools.ietf.org/html/rfc7871
  */
 
 #include <getopt.h>
 #include <signal.h>
 #include <sys/signalfd.h>
-#include <sysexits.h>
 
 #include "types.h"
 
