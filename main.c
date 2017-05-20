@@ -50,7 +50,6 @@ int main(int _argc, char** _argv)
 	char* pid_file = NULL;
 	char* config_file = NULL;
 	sigset_t ds_newmask;
-	sigset_t ds_oldmask;
 	struct ds_ctx* ctx = NULL;
 	struct ds_ctx* ctx_next = NULL;
 
@@ -65,7 +64,6 @@ int main(int _argc, char** _argv)
 	};
 
 	pfcq_zero(&ds_newmask, sizeof(sigset_t));
-	pfcq_zero(&ds_oldmask, sizeof(sigset_t));
 
 	while ((opts = getopt_long(_argc, _argv, "abcdef", longopts, NULL)) != -1)
 	{
@@ -119,7 +117,7 @@ int main(int _argc, char** _argv)
 	sigaddset(&ds_newmask, SIGTERM);
 	sigaddset(&ds_newmask, SIGINT);
 	sigaddset(&ds_newmask, SIGUSR1);
-	pthread_sigmask(SIG_BLOCK, &ds_newmask, &ds_oldmask);
+	pthread_sigmask(SIG_BLOCK, &ds_newmask, NULL);
 
 	sfd = signalfd(-1, &ds_newmask, 0);
 	if (unlikely(sfd == -1))
