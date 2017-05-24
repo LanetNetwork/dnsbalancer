@@ -88,7 +88,7 @@ int main(int _argc, char** _argv)
 				use_syslog = 1;
 				break;
 			default:
-				stop("Unknown option occurred");
+				stop_code(EX_USAGE, "Unknown option occurred");
 				break;
 		}
 	}
@@ -176,6 +176,6 @@ out:
 
 	pfcq_debug_done();
 
-	exit(EX_OK);
+	stop_code(EX_OK, NULL);
 }
 
