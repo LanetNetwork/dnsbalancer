@@ -45,7 +45,8 @@
 
 #define warning(A)				__pfcq_warning(A, errno, __FILE__, __LINE__, 1)
 #define fail(A)					__pfcq_fail(A, errno)
-#define stop(A)					__pfcq_stop(EX_SOFTWARE, A)
+#define stop(A)					stop_code(EX_SOFTWARE, A)
+#define stop_code(A, B)			__pfcq_stop(A, B)
 #define panic(A)				__pfcq_panic(A, errno, __FILE__, __LINE__)
 
 #define pfcq_zero(A, B)			pfcq_memset_g(A, 0, B)
