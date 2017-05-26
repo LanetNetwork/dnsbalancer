@@ -48,7 +48,7 @@ int main(int _argc, char** _argv)
 	int use_syslog = 0;
 	int sfd = -1;
 	char* config_file = NULL;
-	sigset_t ds_newmask;
+	sigset_t ds_sigmask;
 	struct ds_ctx* ctx = NULL;
 	struct ds_ctx* ctx_next = NULL;
 
@@ -61,7 +61,7 @@ int main(int _argc, char** _argv)
 		{0, 0, 0, 0}
 	};
 
-	pfcq_zero(&ds_newmask, sizeof(sigset_t));
+	pfcq_zero(&ds_sigmask, sizeof(sigset_t));
 
 	while ((opts = getopt_long(_argc, _argv, "abcde", longopts, NULL)) != -1)
 	{
@@ -97,13 +97,13 @@ int main(int _argc, char** _argv)
 		if (unlikely(daemon(0, 0) != 0))
 			panic("daemon");
 
-	sigemptyset(&ds_newmask);
-	sigaddset(&ds_newmask, SIGTERM);
-	sigaddset(&ds_newmask, SIGINT);
-	sigaddset(&ds_newmask, SIGUSR1);
-	pthread_sigmask(SIG_BLOCK, &ds_newmask, NULL);
+	sigemptyset(&ds_sigmask);
+	sigaddset(&ds_sigmask, SIGTERM);
+	sigaddset(&ds_sigmask, SIGINT);
+	sigaddset(&ds_sigmask, SIGUSR1);
+	pthread_sigmask(SIG_BLOCK, &ds_sigmask, NULL);
 
-	sfd = signalfd(-1, &ds_newmask, 0);
+	sfd = signalfd(-1, &ds_sigmask, 0);
 	if (unlikely(sfd == -1))
 		panic("signalfd");
 
@@ -145,7 +145,7 @@ int main(int _argc, char** _argv)
 
 out:
 	ds_close(sfd);
-	pthread_sigmask(SIG_UNBLOCK, &ds_newmask, NULL);
+	pthread_sigmask(SIG_UNBLOCK, &ds_sigmask, NULL);
 
 	verbose("%s\n", "Ciao.");
 
