@@ -54,32 +54,32 @@ int main(int _argc, char** _argv)
 
 	struct option longopts[] = {
 		{"config",		required_argument,	NULL,	'a'},
-		{"daemonize",	no_argument,		NULL,	'c'},
-		{"verbose",		no_argument,		NULL,	'd'},
-		{"debug",		no_argument,		NULL,	'e'},
-		{"syslog",		no_argument,		NULL,	'f'},
+		{"daemonize",	no_argument,		NULL,	'b'},
+		{"verbose",		no_argument,		NULL,	'c'},
+		{"debug",		no_argument,		NULL,	'd'},
+		{"syslog",		no_argument,		NULL,	'e'},
 		{0, 0, 0, 0}
 	};
 
 	pfcq_zero(&ds_newmask, sizeof(sigset_t));
 
-	while ((opts = getopt_long(_argc, _argv, "abcdef", longopts, NULL)) != -1)
+	while ((opts = getopt_long(_argc, _argv, "abcde", longopts, NULL)) != -1)
 	{
 		switch (opts)
 		{
 			case 'a':
 				config_file = pfcq_strdup(optarg);
 				break;
-			case 'c':
+			case 'b':
 				daemonize = 1;
 				break;
-			case 'd':
+			case 'c':
 				be_verbose = 1;
 				break;
-			case 'e':
+			case 'd':
 				do_debug = 1;
 				break;
-			case 'f':
+			case 'e':
 				use_syslog = 1;
 				break;
 			default:
