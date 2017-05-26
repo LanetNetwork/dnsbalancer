@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/pfactum/dnsbalancer.svg?branch=master)](https://travis-ci.org/pfactum/dnsbalancer)
+[![Build Status](https://travis-ci.org/pfactum/dnsbalancer.svg?branch=v0.2.x)](https://travis-ci.org/pfactum/dnsbalancer)
 
 dnsbalancer
 ===========
