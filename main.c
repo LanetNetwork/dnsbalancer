@@ -47,7 +47,6 @@ int main(int _argc, char** _argv)
 	int do_debug = 0;
 	int use_syslog = 0;
 	int sfd = -1;
-	char* pid_file = NULL;
 	char* config_file = NULL;
 	sigset_t ds_newmask;
 	struct ds_ctx* ctx = NULL;
@@ -55,7 +54,6 @@ int main(int _argc, char** _argv)
 
 	struct option longopts[] = {
 		{"config",		required_argument,	NULL,	'a'},
-		{"pid-file",	required_argument,	NULL,	'b'},
 		{"daemonize",	no_argument,		NULL,	'c'},
 		{"verbose",		no_argument,		NULL,	'd'},
 		{"debug",		no_argument,		NULL,	'e'},
@@ -71,9 +69,6 @@ int main(int _argc, char** _argv)
 		{
 			case 'a':
 				config_file = pfcq_strdup(optarg);
-				break;
-			case 'b':
-				pid_file = pfcq_strdup(optarg);
 				break;
 			case 'c':
 				daemonize = 1;
@@ -101,17 +96,6 @@ int main(int _argc, char** _argv)
 	if (daemonize)
 		if (unlikely(daemon(0, 0) != 0))
 			panic("daemon");
-
-	if (pid_file)
-	{
-		FILE* pid_file_hd = fopen(pid_file, "w");
-		if (unlikely(!pid_file_hd))
-			panic("fopen");
-		if (unlikely(fprintf(pid_file_hd, "%d", getpid()) < 0))
-			panic("fprintf");
-		if (unlikely(fclose(pid_file_hd) == EOF))
-			panic("fclose");
-	}
 
 	sigemptyset(&ds_newmask);
 	sigaddset(&ds_newmask, SIGTERM);
@@ -164,13 +148,6 @@ out:
 	pthread_sigmask(SIG_UNBLOCK, &ds_newmask, NULL);
 
 	verbose("%s\n", "Ciao.");
-
-	if (pid_file)
-	{
-		if (unlikely(unlink(pid_file) == -1))
-			panic("unlink");
-		pfcq_free(pid_file);
-	}
 
 	pfcq_free(config_file);
 
