@@ -16,7 +16,7 @@ addons:
             - libatomic-ops-dev
 
 before_install:
-    - ln -s /usr/lib/pkg-config/libldns.pc /usr/share/pkgconfig/ldns.pc
+    - sudo ln -s /usr/lib/pkg-config/libldns.pc /usr/share/pkgconfig/ldns.pc
 
 script:
     - mkdir build
