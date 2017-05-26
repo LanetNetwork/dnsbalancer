@@ -1,3 +1,4 @@
+sudo: required
 dist: trusty
 
 language: c
@@ -13,6 +14,9 @@ addons:
             - libunwind8-dev
             - libini-config-dev
             - libatomic-ops-dev
+
+before_install:
+    - ln -s /usr/lib/pkg-config/libldns.pc /usr/share/pkgconfig/ldns.pc
 
 script:
     - mkdir build
