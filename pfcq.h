@@ -35,6 +35,7 @@
 #define __noop					(void)0
 
 #define inform(A, ...)			__pfcq_debug(1, A, __VA_ARGS__)
+#define message(A)				inform("%s\n", A)
 #define verbose(A, ...)			__pfcq_debug(0, A, __VA_ARGS__)
 
 #ifdef MODE_DEBUG

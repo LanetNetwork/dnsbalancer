@@ -39,6 +39,23 @@
 #include "utils.h"
 #include "worker.h"
 
+static void help(void)
+{
+	message("Usage: dnsbalancer --help | --config=<path> [--daemonize] [--verbose] [--debug]");
+	message("                   [--syslog]");
+	message("");
+	message("  --config=<path>    specifies configuration file to use (mandatory)");
+	message("  --daemonize        enables daemonization (preferred way to run on server)");
+	message("  --verbose          enables verbose output");
+	message("  --debug            enables debug output");
+	message("                     works only if compiled with MODE=DEBUG, otherwise does nothing");
+	message("  --syslog           logs everything to syslog instead of /dev/stderr");
+	message("  --help             shows this help and exits");
+	message("");
+	message("Typical usage:");
+	message("dnsbalancer --config=/etc/dnsbalancer/dnsbalancer.conf --verbose --syslog");
+}
+
 int main(int _argc, char** _argv)
 {
 	int opts = 0;
@@ -58,12 +75,13 @@ int main(int _argc, char** _argv)
 		{"verbose",		no_argument,		NULL,	'c'},
 		{"debug",		no_argument,		NULL,	'd'},
 		{"syslog",		no_argument,		NULL,	'e'},
+		{"help",		no_argument,		NULL,	'f'},
 		{0, 0, 0, 0}
 	};
 
 	pfcq_zero(&ds_sigmask, sizeof(sigset_t));
 
-	while ((opts = getopt_long(_argc, _argv, "abcde", longopts, NULL)) != -1)
+	while ((opts = getopt_long(_argc, _argv, "abcdef", longopts, NULL)) != -1)
 	{
 		switch (opts)
 		{
@@ -81,6 +99,10 @@ int main(int _argc, char** _argv)
 				break;
 			case 'e':
 				use_syslog = 1;
+				break;
+			case 'f':
+				help();
+				stop_code(EX_OK, NULL);
 				break;
 			default:
 				stop_code(EX_USAGE, "Unknown option occurred");
@@ -155,4 +177,3 @@ out:
 
 	stop_code(EX_OK, NULL);
 }
-
