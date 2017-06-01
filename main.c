@@ -39,6 +39,9 @@
 #include "utils.h"
 #include "worker.h"
 
+#define DS_APP_NAME		"dnsbalancer"
+#define DS_APP_VERSION	"0.2.0"
+
 static void help(void)
 {
 	message("Usage: dnsbalancer --help | --config=<path> [--daemonize] [--verbose] [--debug]");
@@ -51,6 +54,7 @@ static void help(void)
 	message("                     works only if compiled with MODE=DEBUG, otherwise does nothing");
 	message("  --syslog           logs everything to syslog instead of /dev/stderr");
 	message("  --help             shows this help and exits");
+	message("  --version          shows program version and exits");
 	message("");
 	message("Typical usage:");
 	message("dnsbalancer --config=/etc/dnsbalancer/dnsbalancer.conf --verbose --syslog");
@@ -76,12 +80,13 @@ int main(int _argc, char** _argv)
 		{"debug",		no_argument,		NULL,	'd'},
 		{"syslog",		no_argument,		NULL,	'e'},
 		{"help",		no_argument,		NULL,	'f'},
+		{"version",		no_argument,		NULL,	'g'},
 		{0, 0, 0, 0}
 	};
 
 	pfcq_zero(&ds_sigmask, sizeof(sigset_t));
 
-	while ((opts = getopt_long(_argc, _argv, "abcdef", longopts, NULL)) != -1)
+	while ((opts = getopt_long(_argc, _argv, "abcdefg", longopts, NULL)) != -1)
 	{
 		switch (opts)
 		{
@@ -103,6 +108,9 @@ int main(int _argc, char** _argv)
 			case 'f':
 				help();
 				stop_code(EX_OK, NULL);
+				break;
+			case 'g':
+				stop_code(EX_OK, DS_APP_NAME " v" DS_APP_VERSION);
 				break;
 			default:
 				stop_code(EX_USAGE, "Unknown option occurred");
