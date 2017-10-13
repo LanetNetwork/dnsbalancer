@@ -2,8 +2,8 @@
 
 /*
  * dnsbalancer - daemon to balance UDP DNS requests over DNS servers
- * Copyright (C) 2015-2016 Lanet Network
- * Programmed by Oleksandr Natalenko <o.natalenko@lanet.ua>
+ * Initially created under patronage of Lanet Network
+ * Programmed by Oleksandr Natalenko <oleksandr@natalenko.name>, 2015-2017
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,13 +20,18 @@
 
 #pragma once
 
-#ifndef __LOCAL_CONTEXT_H__
-#define __LOCAL_CONTEXT_H__
+#ifdef DS_HAVE_ATOMICS
+#include <stdatomic.h>
+#else /* DS_HAVE_ATOMICS */
+#include <atomic_ops.h>
+#endif /* DS_HAVE_ATOMICS */
 
-#include "types.h"
+#include <sys/epoll.h>
+#ifndef DS_HAVE_UAPI_EPOLLEXCLUSIVE
+#define EPOLLEXCLUSIVE (1u << 28)
+#endif /* DS_HAVE_UAPI_EPOLLEXCLUSIVE */
 
-struct db_local_context* db_local_context_load(const char* _config_file, struct db_global_context* _g_ctx) __attribute__((nonnull(1, 2)));
-void db_local_context_unload(struct db_local_context* _l_ctx) __attribute__((nonnull(1)));
-
-#endif /* __LOCAL_CONTEXT_H__ */
+#ifndef DS_HAVE_UAPI_SO_REUSEPORT
+#define SO_REUSEPORT 15
+#endif /* DS_HAVE_UAPI_SO_REUSEPORT */
 

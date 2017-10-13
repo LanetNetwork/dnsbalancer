@@ -2,8 +2,8 @@
 
 /*
  * dnsbalancer - daemon to balance UDP DNS requests over DNS servers
- * Copyright (C) 2015-2016 Lanet Network
- * Programmed by Oleksandr Natalenko <o.natalenko@lanet.ua>
+ * Initially created under patronage of Lanet Network
+ * Programmed by Oleksandr Natalenko <oleksandr@natalenko.name>, 2015-2017
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,10 +20,7 @@
 
 #pragma once
 
-#ifndef __WORKER_H__
-#define __WORKER_H__
+#include "types.h"
 
-void* db_worker(void* _data) __attribute__((nonnull(1)));
-
-#endif /* __WORKER_H__ */
+void* ds_wrk(void* _data);
 

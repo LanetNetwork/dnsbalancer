@@ -2,8 +2,8 @@
 
 /*
  * dnsbalancer - daemon to balance UDP DNS requests over DNS servers
- * Copyright (C) 2015-2016 Lanet Network
- * Programmed by Oleksandr Natalenko <o.natalenko@lanet.ua>
+ * Initially created under patronage of Lanet Network
+ * Programmed by Oleksandr Natalenko <oleksandr@natalenko.name>, 2015-2017
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,15 +20,11 @@
 
 #pragma once
 
-#ifndef __ACL_LOCAL_H__
-#define __ACL_LOCAL_H__
-
 #include "types.h"
 
-#include "contrib/iniparser/iniparser.h"
-
-void db_acl_local_load(dictionary* _config, const char* _acl_name, struct db_acl* _acl) __attribute__((nonnull(1, 2, 3)));
-void db_acl_local_unload(struct db_acl* _acl) __attribute__((nonnull(1)));
-
-#endif /* __ACL_LOCAL_H__ */
+bool ds_tsk_buf_to_pkt(struct ds_wrk_tsk* _tsk) __attribute__((warn_unused_result));
+int ds_tsk_buf_parse(struct ds_wrk_ctx* _wrk_ctx,
+					 struct ds_wrk_tsk* _tsk,
+					 enum ds_pkt_type _pkt_type) __attribute__((warn_unused_result));
+void ds_tsk_get_fwd(struct ds_wrk_tsk* _tsk, struct rb_table* _fwd_sk_set);
 

@@ -1,10 +1,2 @@
-build_icc
-build_clang
-build_clang_analyzer
-build_debug
-build_release
-test
+build_*/
 dnsbalancer.conf
-*~
-*.swp
-*.tar.gz

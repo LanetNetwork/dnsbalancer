@@ -2,8 +2,8 @@
 
 /*
  * dnsbalancer - daemon to balance UDP DNS requests over DNS servers
- * Copyright (C) 2015-2016 Lanet Network
- * Programmed by Oleksandr Natalenko <o.natalenko@lanet.ua>
+ * Initially created under patronage of Lanet Network
+ * Programmed by Oleksandr Natalenko <oleksandr@natalenko.name>, 2015-2017
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,13 +20,8 @@
 
 #pragma once
 
-#ifndef __WATCHDOG_H__
-#define __WATCHDOG_H__
-
 #include "types.h"
 
-int db_ping_forwarder(struct db_forwarder* _forwarder) __attribute__((nonnull(1)));
-void* db_watchdog(void* _data) __attribute__((nonnull(1)));
-
-#endif /* __WATCHDOG_H__ */
+struct ds_ctx* ds_ctx_load(const char* _config_file) __attribute__((warn_unused_result));
+void ds_ctx_unload(struct ds_ctx* _ctx);
 

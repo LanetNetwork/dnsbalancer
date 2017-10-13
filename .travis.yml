@@ -1,0 +1,27 @@
+notifications:
+    email: false
+
+sudo: required
+dist: trusty
+
+language: c
+
+compiler:
+    - gcc
+
+addons:
+    apt:
+        packages:
+            - cmake
+            - libldns-dev
+            - libunwind8-dev
+            - libini-config-dev
+            - libatomic-ops-dev
+
+before_install:
+    - sudo ln -s /usr/lib/pkg-config/libldns.pc /usr/share/pkgconfig/ldns.pc
+
+script:
+    - mkdir build
+    - cd build
+    - cmake -DCMAKE_BUILD_TYPE=Debug .. && make
