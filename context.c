@@ -286,7 +286,7 @@ struct ds_ctx* ds_ctx_load(const char* _config_file)
 			inform("Address: %s\n", cur);
 			stop("Incorrect address specified");
 		}
-		ds_inet_pton(parts[0], pfcq_strtoul(parts[1], 10), &ret->fwds[c_f].addr);
+		ds_inet_pton(parts[0], (in_port_t)pfcq_strtoul(parts[1], 10), &ret->fwds[c_f].addr);
 		pfcq_free_split_string(parts, nparts);
 
 		// regular DSCP
@@ -341,7 +341,7 @@ struct ds_ctx* ds_ctx_load(const char* _config_file)
 			inform("Address: %s\n", cur);
 			stop("Incorrect address specified");
 		}
-		ds_inet_pton(parts[0], pfcq_strtoul(parts[1], 10), &ret->fes[c_f].addr);
+		ds_inet_pton(parts[0], (in_port_t)pfcq_strtoul(parts[1], 10), &ret->fes[c_f].addr);
 		pfcq_free_split_string(parts, nparts);
 
 		// DSCP
