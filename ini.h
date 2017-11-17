@@ -66,15 +66,15 @@
 
 typedef struct collection_item ds_cfg_t;
 
-ds_cfg_t* ds_cfg_open(const char* _app_name, const char* _filepath) __attribute__((warn_unused_result));
-void ds_cfg_close(ds_cfg_t* _config);
-uint64_t ds_cfg_get_u64(ds_cfg_t* _config, const char* _section, const char* _key, uint64_t _default) __attribute__((warn_unused_result));
-int ds_cfg_get_int(ds_cfg_t* _config, const char* _section, const char* _key, int _default) __attribute__((warn_unused_result));
-unsigned ds_cfg_get_uint(ds_cfg_t* _config, const char* _section, const char* _key, unsigned _default) __attribute__((warn_unused_result));
-const char* ds_cfg_get_cstr(ds_cfg_t* _config, const char* _section, const char* _key) __attribute__((warn_unused_result));
-const char* ds_cfg_try_get_cstr(ds_cfg_t* _config, const char* _section, const char* _key) __attribute__((warn_unused_result));
-char** ds_cfg_get_keys(ds_cfg_t* _config, const char* _section, int* _size) __attribute__((warn_unused_result));
-void ds_cfg_free_keys(char** _keys);
-char** ds_cfg_get_sections(ds_cfg_t* _config, int* _size) __attribute__((warn_unused_result));
-void ds_cfg_free_sections(char** _sections);
+ds_cfg_t* ds_cfg_open(const char*, const char*) __attribute__((warn_unused_result));
+void ds_cfg_close(ds_cfg_t*);
+uint64_t ds_cfg_get_u64(ds_cfg_t*, const char*, const char*, uint64_t) __attribute__((warn_unused_result));
+int ds_cfg_get_int(ds_cfg_t*, const char*, const char*, int) __attribute__((warn_unused_result));
+unsigned ds_cfg_get_uint(ds_cfg_t*, const char*, const char*, unsigned) __attribute__((warn_unused_result));
+const char* ds_cfg_get_cstr(ds_cfg_t*, const char*, const char*) __attribute__((warn_unused_result));
+const char* ds_cfg_try_get_cstr(ds_cfg_t*, const char*, const char*) __attribute__((warn_unused_result));
+char** ds_cfg_get_keys(ds_cfg_t*, const char*, int*) __attribute__((warn_unused_result));
+void ds_cfg_free_keys(char**);
+char** ds_cfg_get_sections(ds_cfg_t*, int*) __attribute__((warn_unused_result));
+void ds_cfg_free_sections(char**);
 

@@ -22,14 +22,14 @@
 
 #include "types.h"
 
-int ds_wrk_acpt_handler(struct ds_fe_sk* _fe_sk, struct ds_wrk_ctx* _data) __attribute__((warn_unused_result));
-int ds_wrk_prep_handler(int _fd, struct ds_wrk_ctx* _data) __attribute__((warn_unused_result));
-int ds_wrk_fwd_handler(int _fd, struct ds_wrk_ctx* _data) __attribute__((warn_unused_result));
-int ds_wrk_obt_handler(struct ds_fwd_sk* _fwd_sk, struct ds_wrk_ctx* _data) __attribute__((warn_unused_result));
-int ds_wrk_rep_handler(int _fd, struct ds_wrk_ctx* _data) __attribute__((warn_unused_result));
-int ds_wrk_exit_handler(int _fd, struct ds_wrk_ctx* _data) __attribute__((warn_unused_result));
-int ds_wrk_gc_handler(int _fd, struct ds_wrk_ctx* _data) __attribute__((warn_unused_result));
-int ds_wrk_wdt_req_handler(int _fd, struct ds_wrk_ctx* _data) __attribute__((warn_unused_result));
-int ds_wrk_wdt_rep_handler(int _fd, struct ds_wrk_ctx* _data) __attribute__((warn_unused_result));
-int ds_wrk_tk_handler(int _fd, struct ds_wrk_ctx* _data) __attribute__((warn_unused_result));
+int ds_wrk_acpt_handler(struct ds_fe_sk*, struct ds_wrk_ctx*) __attribute__((warn_unused_result));
+int ds_wrk_prep_handler(int, struct ds_wrk_ctx*) __attribute__((warn_unused_result));
+int ds_wrk_fwd_handler(int, struct ds_wrk_ctx*) __attribute__((warn_unused_result));
+int ds_wrk_obt_handler(struct ds_fwd_sk*, struct ds_wrk_ctx*) __attribute__((warn_unused_result));
+int ds_wrk_rep_handler(int, struct ds_wrk_ctx*) __attribute__((warn_unused_result));
+int ds_wrk_exit_handler(int, struct ds_wrk_ctx*) __attribute__((warn_unused_result));
+int ds_wrk_gc_handler(int, struct ds_wrk_ctx*) __attribute__((warn_unused_result));
+int ds_wrk_wdt_req_handler(int, struct ds_wrk_ctx*) __attribute__((warn_unused_result));
+int ds_wrk_wdt_rep_handler(int, struct ds_wrk_ctx*) __attribute__((warn_unused_result));
+int ds_wrk_tk_handler(int, struct ds_wrk_ctx*) __attribute__((warn_unused_result));
 
