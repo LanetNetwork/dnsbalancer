@@ -77,25 +77,36 @@ int ds_wrk_prep_handler(int _fd, struct ds_wrk_ctx* _data)
 		goto err;
 	}
 
-	// TODO: filtering/acls
-
-	ds_tsk_get_fwd(tsk, _data->fwd_sk_set);
-	if (unlikely(!tsk->fe_fwd))
+	for (size_t i = 0; i < _data->ctx->nacts; i++)
 	{
-		ds_tsk_free(tsk);
-		goto err;
+		for (size_t j = 0; j < _data->ctx->acts[i].nact_items; j++)
+		{
+			struct ds_act_item* c_act_item = &_data->ctx->acts[i].act_items[j];
+			// TODO: other matchers
+			switch (c_act_item->act_type)
+			{
+				case DS_ACT_BALANCE:
+					ds_tsk_get_fwd(tsk, _data->fwd_sk_set, c_act_item);
+					if (unlikely(!tsk->fwd))
+					{
+						ds_tsk_free(tsk);
+						goto err;
+					}
+					if (unlikely(ds_tsk_buf_parse(_data, tsk, DS_PKT_REQ) == -1))
+					{
+						ds_tsk_free(tsk);
+						goto err;
+					}
+					TAILQ_INSERT_TAIL(&_data->fwd_queue, tsk, tailq);
+					ds_produce_u64(_data->ev_fwd_fd);
+					goto out;
+					break;
+				default:
+					// TODO: unknown action
+					break;
+			}
+		}
 	}
-
-	if (unlikely(ds_tsk_buf_parse(_data, tsk, DS_PKT_REQ) == -1))
-	{
-		ds_tsk_free(tsk);
-		goto err;
-	}
-
-	TAILQ_INSERT_TAIL(&_data->fwd_queue, tsk, tailq);
-	ds_produce_u64(_data->ev_fwd_fd);
-
-	goto out;
 
 err:
 	pfcq_counter_dec(&_data->ctx->in_flight);
@@ -173,7 +184,7 @@ int ds_wrk_obt_handler(struct ds_fwd_sk* _fwd_sk, struct ds_wrk_ctx* _data)
 	tsk->addr = found->addr;
 	tsk->orig_fe_sk = found->orig_fe_sk;
 	tsk->orig_fe_addr = found->orig_fe_addr;
-	tsk->fe_fwd = found->fe_fwd;
+	tsk->fwd = found->fwd;
 	tsk->fwd_sk_addr = found->fwd_sk_addr;
 
 	pfcq_counter_reset(&found->epoch);

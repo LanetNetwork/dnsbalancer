@@ -24,6 +24,7 @@
 
 #define DS_CFG_PARTS_DELIM			"/"
 #define DS_CFG_LIST_DELIM			","
+#define DS_CFG_SUBLIST_DELIM		"|"
 #define DS_CFG_SECTION_GENERAL		"general"
 #define DS_CFG_KEY_WRKS				"wrks"
 #define DS_CFG_DEFAULT_WRKS			(-1)
@@ -38,9 +39,6 @@
 #define DS_CFG_KEY_TYPE				"type"
 #define DS_CFG_TYPE_FE				"fe"
 #define DS_CFG_TYPE_FWD				"fwd"
-#define DS_CFG_TYPE_ACL				"acl"
-#define DS_CFG_TYPE_SUBNET			"subnet"
-#define DS_CFG_TYPE_REQ				"req"
 #define DS_CFG_TYPE_ACT				"act"
 #define DS_CFG_KEY_ADDR				"addr"
 #define DS_CFG_KEY_REG_DSCP			"dscp"
@@ -48,21 +46,14 @@
 #define DS_CFG_KEY_WDT_QUERY		"wdt_query"
 #define DS_CFG_KEY_WDT_TRIES		"wdt_tries"
 #define DS_CFG_DEFAULT_WDT_TRIES	3
-#define DS_CFG_KEY_FWD_MODE			"mode"
-#define DS_CFG_FWD_MODE_RR			"rr"
-#define DS_CFG_FWD_MODE_STICKY		"sticky"
-#define DS_CFG_KEY_FWDS				"fwds"
 #define DS_CFG_KEY_MAX_PKT_SIZE		"max_pkt_size"
 #define	DS_CFG_DEFAULT_MAX_PKT_SIZE	512
 #define DS_CFG_KEY_TK_INTVL			"tk_intvl"
 #define DS_CFG_DEFAULT_TK_INTVL		1000
-#define DS_CFG_MATCHER_STRICT		"strict"
-#define DS_CFG_MATCHER_SUBDOMAINS	"subdomains"
-#define DS_CFG_MATCHER_REGEX		"regex"
-#define DS_CFG_ACL_ACT_ACCEPT		"accept"
-#define DS_CFG_ACL_ACT_DROP			"drop"
-#define DS_CFG_ACL_ACT_NXDOMAIN		"nxdomain"
-#define DS_CFG_ACL_ACT_SET_A		"set_a"
+#define DS_CFG_KEY_ACTS				"acts"
+#define DS_CFG_ACT_BALANCE			"balance"
+#define DS_CFG_ACT_BALANCE_RR		"rr"
+#define DS_CFG_ACT_BALANCE_STICKY	"sticky"
 
 typedef struct collection_item ds_cfg_t;
 

@@ -10,29 +10,15 @@ tk_intvl=1000
 [stats]
 addr=127.0.0.1/8083
 
-[sample_rr]
+[fe_1]
 type=fe
 addr=127.0.0.1/53535
 dscp=0x12
-acl=local/acl_1
-fwds=opendns_1,opendns_2
-mode=rr
+acts=acts_1
 
-[acl_1]
-type=acl
-0=subnet_1/request_1/action_1
-
-[subnet_1]
-type=subnet
-0=0.0.0.0/0
-
-[request_1]
-type=req
-0=*/*/regex/^.*$
-
-[action_1]
+[acts_1]
 type=act
-0=accept/-
+0=0.0.0.0/0,*,*,^.*$,balance/rr/opendns_1|opendns_2
 
 [opendns_1]
 type=fwd
@@ -51,4 +37,3 @@ wdt_dscp=0x12
 wdt_tries=3
 wdt_query=. IN SOA
 weight=1
-

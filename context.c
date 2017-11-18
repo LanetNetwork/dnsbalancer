@@ -53,203 +53,13 @@ struct ds_ctx* ds_ctx_load(const char* _config_file)
 			ret->nfes++;
 		else if (pfcq_strlcmp(stype, DS_CFG_TYPE_FWD) == 0)
 			ret->nfwds++;
-		else if (pfcq_strlcmp(stype, DS_CFG_TYPE_ACL) == 0)
-			ret->nacls++;
-		else if (pfcq_strlcmp(stype, DS_CFG_TYPE_SUBNET) == 0)
-			ret->n_acl_subnets++;
-		else if (pfcq_strlcmp(stype, DS_CFG_TYPE_REQ) == 0)
-			ret->n_acl_reqs++;
 		else if (pfcq_strlcmp(stype, DS_CFG_TYPE_ACT) == 0)
-			ret->n_acl_acts++;
+			ret->nacts++;
 		else
 		{
 			inform("Section type: %s\n", stype);
 			stop("Unknown section type");
 		}
-	}
-
-	// subnets
-	ret->acl_subnets = pfcq_alloc(ret->n_acl_subnets * sizeof(struct ds_acl_subnet));
-	for (size_t i = 0, c_s = 0; i < (size_t)nsections; i++)
-	{
-		const char* stype = ds_cfg_try_get_cstr(cfg, sections[i], DS_CFG_KEY_TYPE);
-		if (!stype || pfcq_strlcmp(stype, DS_CFG_TYPE_SUBNET) != 0)
-			continue;
-
-		// name
-		ret->acl_subnets[c_s].name = pfcq_strdup(sections[i]);
-
-		char** keys = ds_cfg_get_keys(cfg, sections[i], (int*)&ret->acl_subnets[c_s].nitems);
-		if (!--ret->acl_subnets[c_s].nitems) // minus "type"
-		{
-			inform("Section: %s\n", sections[i]);
-			stop("Section is empty");
-		}
-
-		ret->acl_subnets[c_s].items = pfcq_alloc(ret->acl_subnets[c_s].nitems * sizeof(struct ds_acl_subnet_item));
-
-		for (size_t j = 0, c_i = 0; j < ret->acl_subnets[c_s].nitems + 1; j++)
-		{
-			size_t nparts = 0;
-			char** parts = NULL;
-			const char* cur = NULL;
-
-			if (pfcq_strlcmp(keys[j], DS_CFG_KEY_TYPE) == 0)
-				continue;
-
-			cur = ds_cfg_get_cstr(cfg, sections[i], keys[j]);
-			parts = pfcq_split_string(cur, DS_CFG_PARTS_DELIM, &nparts);
-			if (unlikely(nparts != 2))
-			{
-				inform("Address: %s\n", cur);
-				stop("Incorrect address specified");
-			}
-
-			ret->acl_subnets[c_s].items[c_i].name = pfcq_strdup(keys[j]);
-			ds_inet_pton(parts[0], 0, &ret->acl_subnets[c_s].items[c_i].addr);
-			ds_inet_vlsmton(&ret->acl_subnets[c_s].items[c_i].addr,
-							parts[1], &ret->acl_subnets[c_s].items[c_i].mask);
-
-			pfcq_free_split_string(parts, nparts);
-
-			c_i++;
-		}
-		ds_cfg_free_keys(keys);
-
-		verbose("[subnet: %s] loaded\n", ret->acl_subnets[c_s].name);
-
-		c_s++;
-	}
-
-	// requests
-	ret->acl_reqs = pfcq_alloc(ret->n_acl_reqs * sizeof(struct ds_acl_req));
-	for (size_t i = 0, c_s = 0; i < (size_t)nsections; i++)
-	{
-		const char* stype = ds_cfg_try_get_cstr(cfg, sections[i], DS_CFG_KEY_TYPE);
-		if (!stype || pfcq_strlcmp(stype, DS_CFG_TYPE_REQ) != 0)
-			continue;
-
-		// name
-		ret->acl_reqs[c_s].name = pfcq_strdup(sections[i]);
-
-		char** keys = ds_cfg_get_keys(cfg, sections[i], (int*)&ret->acl_reqs[c_s].nitems);
-		if (!--ret->acl_reqs[c_s].nitems) // minus "type"
-		{
-			inform("Section: %s\n", sections[i]);
-			stop("Section is empty");
-		}
-
-		ret->acl_reqs[c_s].items = pfcq_alloc(ret->acl_reqs[c_s].nitems * sizeof(struct ds_acl_req_item));
-
-		for (size_t j = 0, c_i = 0; j < ret->acl_reqs[c_s].nitems + 1; j++)
-		{
-			size_t nparts = 0;
-			char** parts = NULL;
-			const char* cur = NULL;
-
-			if (pfcq_strlcmp(keys[j], DS_CFG_KEY_TYPE) == 0)
-				continue;
-
-			cur = ds_cfg_get_cstr(cfg, sections[i], keys[j]);
-			parts = pfcq_split_string(cur, DS_CFG_PARTS_DELIM, &nparts);
-			if (unlikely(nparts != 4))
-			{
-				inform("Request: %s\n", cur);
-				stop("Incorrect request specified");
-			}
-
-			ret->acl_reqs[c_s].items[c_i].name = pfcq_strdup(keys[j]);
-			// LDNS_RR_CLASS_FIRST (0) for "*"
-			ret->acl_reqs[c_s].items[c_i].rr_class = ldns_get_rr_class_by_name(parts[0]);
-			// LDNS_RR_TYPE_FIRST (0) for "*"
-			ret->acl_reqs[c_s].items[c_i].rr_type = ldns_get_rr_type_by_name(parts[1]);
-			if (pfcq_strlcmp(parts[2], DS_CFG_MATCHER_STRICT) == 0)
-				ret->acl_reqs[c_s].items[c_i].matcher = DS_MATCHER_STRICT;
-			else if (pfcq_strlcmp(parts[2], DS_CFG_MATCHER_SUBDOMAINS) == 0)
-				ret->acl_reqs[c_s].items[c_i].matcher = DS_MATCHER_SUBDOMAINS;
-			else if (pfcq_strlcmp(parts[2], DS_CFG_MATCHER_REGEX) == 0)
-				ret->acl_reqs[c_s].items[c_i].matcher = DS_MATCHER_REGEX;
-			else
-			{
-				inform("Matcher: %s\n", parts[2]);
-				stop("Incorrect matcher specified");
-			}
-			ret->acl_reqs[c_s].items[c_i].expr = pfcq_strdup(parts[3]);
-			ds_regcomp(&ret->acl_reqs[c_s].items[c_i].regex, ret->acl_reqs[c_s].items[c_i].expr);
-
-			pfcq_free_split_string(parts, nparts);
-
-			c_i++;
-		}
-		ds_cfg_free_keys(keys);
-
-		verbose("[request: %s] loaded\n", ret->acl_reqs[c_s].name);
-
-		c_s++;
-	}
-
-	// actions
-	ret->acl_acts = pfcq_alloc(ret->n_acl_acts * sizeof(struct ds_acl_act));
-	for (size_t i = 0, c_s = 0; i < (size_t)nsections; i++)
-	{
-		const char* stype = ds_cfg_try_get_cstr(cfg, sections[i], DS_CFG_KEY_TYPE);
-		if (!stype || pfcq_strlcmp(stype, DS_CFG_TYPE_ACT) != 0)
-			continue;
-
-		// name
-		ret->acl_acts[c_s].name = pfcq_strdup(sections[i]);
-
-		char** keys = ds_cfg_get_keys(cfg, sections[i], (int*)&ret->acl_acts[c_s].nitems);
-		if (!--ret->acl_acts[c_s].nitems) // minus "type"
-		{
-			inform("Section: %s\n", sections[i]);
-			stop("Section is empty");
-		}
-
-		ret->acl_acts[c_s].items = pfcq_alloc(ret->acl_acts[c_s].nitems * sizeof(struct ds_acl_act_item));
-
-		for (size_t j = 0, c_i = 0; j < ret->acl_acts[c_s].nitems + 1; j++)
-		{
-			size_t nparts = 0;
-			char** parts = NULL;
-			const char* cur = NULL;
-
-			if (pfcq_strlcmp(keys[j], DS_CFG_KEY_TYPE) == 0)
-				continue;
-
-			cur = ds_cfg_get_cstr(cfg, sections[i], keys[j]);
-			parts = pfcq_split_string(cur, DS_CFG_PARTS_DELIM, &nparts);
-			if (unlikely(nparts != 2))
-			{
-				inform("Action: %s\n", cur);
-				stop("Incorrect action specified");
-			}
-
-			ret->acl_acts[c_s].items[c_i].name = pfcq_strdup(keys[j]);
-			if (pfcq_strlcmp(parts[0], DS_CFG_ACL_ACT_ACCEPT) == 0)
-				ret->acl_acts[c_s].items[c_i].act = DS_ACTION_ACCEPT;
-			else if (pfcq_strlcmp(parts[0], DS_CFG_ACL_ACT_DROP) == 0)
-				ret->acl_acts[c_s].items[c_i].act = DS_ACTION_DROP;
-			else if (pfcq_strlcmp(parts[0], DS_CFG_ACL_ACT_NXDOMAIN) == 0)
-				ret->acl_acts[c_s].items[c_i].act = DS_ACTION_NXDOMAIN;
-			// TODO: also obtain parms for SET_A from parts[1]
-			else if (pfcq_strlcmp(parts[0], DS_CFG_ACL_ACT_SET_A) == 0)
-				ret->acl_acts[c_s].items[c_i].act = DS_ACTION_SET_A;
-			else
-			{
-				inform("Action: %s\n", parts[0]);
-				stop("Incorrect action specified");
-			}
-
-			pfcq_free_split_string(parts, nparts);
-
-			c_i++;
-		}
-		ds_cfg_free_keys(keys);
-
-		verbose("[action: %s] loaded\n", ret->acl_acts[c_s].name);
-
-		c_s++;
 	}
 
 	pfcq_counter_init(&ret->epoch);
@@ -261,7 +71,7 @@ struct ds_ctx* ds_ctx_load(const char* _config_file)
 
 	// forwarders
 	ret->fwds = pfcq_alloc(ret->nfwds * sizeof(struct ds_fwd));
-	for (size_t i = 0, c_f = 0; i < (size_t)nsections; i++)
+	for (size_t i = 0, c_x = 0; i < (size_t)nsections; i++)
 	{
 		size_t nparts = 0;
 		char** parts = NULL;
@@ -271,12 +81,12 @@ struct ds_ctx* ds_ctx_load(const char* _config_file)
 			continue;
 
 		// init
-		pfcq_counter_init(&ret->fwds[c_f].c_q_id);
-		pfcq_counter_set(&ret->fwds[c_f].c_q_id, 1);
-		pfcq_counter_init(&ret->fwds[c_f].wdt_pending);
+		pfcq_counter_init(&ret->fwds[c_x].c_q_id);
+		pfcq_counter_set(&ret->fwds[c_x].c_q_id, 1);
+		pfcq_counter_init(&ret->fwds[c_x].wdt_pending);
 
 		// name
-		ret->fwds[c_f].name = pfcq_strdup(sections[i]);
+		ret->fwds[c_x].name = pfcq_strdup(sections[i]);
 
 		// address
 		cur = ds_cfg_get_cstr(cfg, sections[i], DS_CFG_KEY_ADDR);
@@ -286,30 +96,143 @@ struct ds_ctx* ds_ctx_load(const char* _config_file)
 			inform("Address: %s\n", cur);
 			stop("Incorrect address specified");
 		}
-		ds_inet_pton(parts[0], (in_port_t)pfcq_strtoul(parts[1], 10), &ret->fwds[c_f].addr);
+		ds_inet_pton(parts[0], (in_port_t)pfcq_strtoul(parts[1], 10), &ret->fwds[c_x].addr);
 		pfcq_free_split_string(parts, nparts);
 
 		// regular DSCP
 		cur = ds_cfg_get_cstr(cfg, sections[i], DS_CFG_KEY_REG_DSCP);
-		ret->fwds[c_f].reg_dscp = pfcq_strtoul(cur, 16);
+		ret->fwds[c_x].reg_dscp = pfcq_strtoul(cur, 16);
 
 		// watchdog DSCP
 		cur = ds_cfg_get_cstr(cfg, sections[i], DS_CFG_KEY_WDT_DSCP);
-		ret->fwds[c_f].wdt_dscp = pfcq_strtoul(cur, 16);
+		ret->fwds[c_x].wdt_dscp = pfcq_strtoul(cur, 16);
 
 		// watchdog query
 		cur = ds_cfg_get_cstr(cfg, sections[i], DS_CFG_KEY_WDT_QUERY);
-		ret->fwds[c_f].wdt_query = pfcq_strdup(cur);
+		ret->fwds[c_x].wdt_query = pfcq_strdup(cur);
 
 		// watchdog tries
-		ret->fwds[c_f].wdt_tries = ds_cfg_get_uint(cfg, sections[i], DS_CFG_KEY_WDT_TRIES, DS_CFG_DEFAULT_WDT_TRIES);
+		ret->fwds[c_x].wdt_tries = ds_cfg_get_uint(cfg, sections[i], DS_CFG_KEY_WDT_TRIES, DS_CFG_DEFAULT_WDT_TRIES);
 
 		// forwarder is alive by default
-		ret->fwds[c_f].alive = true;
+		ret->fwds[c_x].alive = true;
 
-		verbose("[fwd: %s] loaded\n", ret->fwds[c_f].name);
+		verbose("[fwd: %s] loaded\n", ret->fwds[c_x].name);
 
-		c_f++;
+		c_x++;
+	}
+
+	// actions
+	ret->acts = pfcq_alloc(ret->nacts * sizeof(struct ds_act));
+	for (size_t i = 0, c_x = 0; i < (size_t)nsections; i++)
+	{
+		const char* stype = ds_cfg_try_get_cstr(cfg, sections[i], DS_CFG_KEY_TYPE);
+		if (!stype || pfcq_strlcmp(stype, DS_CFG_TYPE_ACT) != 0)
+			continue;
+
+		// name
+		ret->acts[c_x].name = pfcq_strdup(sections[i]);
+
+		char** keys = ds_cfg_get_keys(cfg, sections[i], (int*)&ret->acts[c_x].nact_items);
+		if (!--ret->acts[c_x].nact_items) // minus "type"
+		{
+			inform("Section: %s\n", sections[i]);
+			stop("Section is empty");
+		}
+
+		ret->acts[c_x].act_items = pfcq_alloc(ret->acts[c_x].nact_items * sizeof(struct ds_act_item));
+
+		for (size_t j = 0, c_y = 0; j < ret->acts[c_x].nact_items + 1; j++)
+		{
+			size_t nparts = 0;
+			char** parts = NULL;
+			const char* cur = NULL;
+			size_t naddr_parts = 0;
+			char** addr_parts = NULL;
+			size_t nact_parts = 0;
+			char** act_parts = NULL;
+
+			if (pfcq_strlcmp(keys[j], DS_CFG_KEY_TYPE) == 0)
+				continue;
+
+			cur = ds_cfg_get_cstr(cfg, sections[i], keys[j]);
+			parts = pfcq_split_string(cur, DS_CFG_LIST_DELIM, &nparts);
+			if (unlikely(nparts != 5))
+			{
+				inform("Action: %s\n", cur);
+				stop("Incorrect action specified");
+			}
+
+			ret->acts[c_x].act_items[c_y].name = pfcq_strdup(keys[j]);
+
+			// address/mask
+			addr_parts = pfcq_split_string(parts[0], DS_CFG_PARTS_DELIM, &naddr_parts);
+			if (unlikely(naddr_parts != 2))
+			{
+				inform("Address: %s\n", parts[0]);
+				stop("Incorrect address specified");
+			}
+			ds_inet_pton(addr_parts[0], 0, &ret->acts[c_x].act_items[c_y].addr);
+			ds_inet_vlsmton(&ret->acts[c_x].act_items[c_y].addr,
+							addr_parts[1], &ret->acts[c_x].act_items[c_y].mask);
+			pfcq_free_split_string(addr_parts, naddr_parts);
+
+			// LDNS_RR_CLASS_FIRST (0) for "*"
+			ret->acts[c_x].act_items[c_y].rr_class = ldns_get_rr_class_by_name(parts[1]);
+			// LDNS_RR_TYPE_FIRST (0) for "*"
+			ret->acts[c_x].act_items[c_y].rr_type = ldns_get_rr_type_by_name(parts[2]);
+			ret->acts[c_x].act_items[c_y].expr = pfcq_strdup(parts[3]);
+			ds_regcomp(&ret->acts[c_x].act_items[c_y].regex, ret->acts[c_x].act_items[c_y].expr);
+
+			act_parts = pfcq_split_string(parts[4], DS_CFG_PARTS_DELIM, &nact_parts);
+			if (pfcq_strlcmp(act_parts[0], DS_CFG_ACT_BALANCE) == 0)
+			{
+				size_t nfwd_parts = 0;
+				char** fwd_parts = NULL;
+
+				ret->acts[c_x].act_items[c_y].act_type = DS_ACT_BALANCE;
+
+				if (pfcq_strlcmp(act_parts[1], DS_CFG_ACT_BALANCE_RR) == 0)
+				{
+					ret->acts[c_x].act_items[c_y].act_balance_type = DS_ACT_BALANCE_RR;
+				} else if (pfcq_strlcmp(act_parts[1], DS_CFG_ACT_BALANCE_STICKY) == 0)
+				{
+					ret->acts[c_x].act_items[c_y].act_balance_type = DS_ACT_BALANCE_STICKY;
+				} else
+				{
+					inform("Balancing type: %s\n", act_parts[1]);
+					stop("Unknown balancing type specified");
+				}
+				fwd_parts = pfcq_split_string(act_parts[2], DS_CFG_SUBLIST_DELIM, &nfwd_parts);
+				ret->acts[c_x].act_items[c_y].act_balance_nfwds = nfwd_parts;
+				ret->acts[c_x].act_items[c_y].act_balance_fwds =
+					pfcq_alloc(ret->acts[c_x].act_items[c_y].act_balance_nfwds *
+					sizeof(struct ds_fwd*));
+				for (size_t k = 0, c_z = 0; k < ret->acts[c_x].act_items[c_y].act_balance_nfwds; k++)
+					for (size_t t = 0; t < ret->acts[c_x].act_items[c_y].act_balance_nfwds; t++)
+						if (strncmp(ret->fwds[k].name, fwd_parts[t], strlen(fwd_parts[t])) == 0)
+						{
+							ret->acts[c_x].act_items[c_y].act_balance_fwds[c_z] = &ret->fwds[k];
+							c_z++;
+						}
+				pfcq_free_split_string(fwd_parts, nfwd_parts);
+				pfcq_counter_init(&ret->acts[c_x].act_items[c_y].c_fwd);
+			} else
+			{
+				inform("Action: %s\n", act_parts[0]);
+				stop("Unknown action specified");
+			}
+			pfcq_free_split_string(act_parts, nact_parts);
+
+			pfcq_free_split_string(parts, nparts);
+
+			c_y++;
+		}
+		ds_cfg_free_keys(keys);
+
+		verbose("[act: %s] loaded\n", ret->acts[c_x].name);
+
+		c_x++;
 	}
 
 	ret->wdt_fd = ds_timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
@@ -318,7 +241,7 @@ struct ds_ctx* ds_ctx_load(const char* _config_file)
 					   DS_CFG_KEY_WDT_INTVL, DS_CFG_DEFAULT_WDT_INTVL) * 1000000ULL);
 
 	ret->fes = pfcq_alloc(ret->nfes * sizeof(struct ds_fe));
-	for (size_t i = 0, c_f = 0; i < (size_t)nsections; i++)
+	for (size_t i = 0, c_x = 0; i < (size_t)nsections; i++)
 	{
 		size_t nparts = 0;
 		char** parts = NULL;
@@ -327,11 +250,8 @@ struct ds_ctx* ds_ctx_load(const char* _config_file)
 		if (!stype || pfcq_strlcmp(stype, DS_CFG_TYPE_FE) != 0)
 			continue;
 
-		// init
-		pfcq_counter_init(&ret->fes[c_f].c_fwd);
-
 		// name
-		ret->fes[c_f].name = pfcq_strdup(sections[i]);
+		ret->fes[c_x].name = pfcq_strdup(sections[i]);
 
 		// address
 		cur = ds_cfg_get_cstr(cfg, sections[i], DS_CFG_KEY_ADDR);
@@ -341,53 +261,30 @@ struct ds_ctx* ds_ctx_load(const char* _config_file)
 			inform("Address: %s\n", cur);
 			stop("Incorrect address specified");
 		}
-		ds_inet_pton(parts[0], (in_port_t)pfcq_strtoul(parts[1], 10), &ret->fes[c_f].addr);
+		ds_inet_pton(parts[0], (in_port_t)pfcq_strtoul(parts[1], 10), &ret->fes[c_x].addr);
 		pfcq_free_split_string(parts, nparts);
 
 		// DSCP
 		cur = ds_cfg_get_cstr(cfg, sections[i], DS_CFG_KEY_REG_DSCP);
-		ret->fes[c_f].dscp = pfcq_strtoul(cur, 16);
+		ret->fes[c_x].dscp = pfcq_strtoul(cur, 16);
 
-		// forwarding mode
-		cur = ds_cfg_get_cstr(cfg, sections[i], DS_CFG_KEY_FWD_MODE);
-		if (pfcq_strlcmp(cur, DS_CFG_FWD_MODE_RR) == 0)
-			ret->fes[c_f].fwd_mode = DS_FWD_RR;
-		else if (pfcq_strlcmp(cur, DS_CFG_FWD_MODE_STICKY) == 0)
-			ret->fes[c_f].fwd_mode = DS_FWD_STICKY;
-		else
-		{
-			inform("Unknown forwarding mode: %s\n", cur);
-			stop("Stopping.");
-		}
-
-		// forwarders
-		cur = ds_cfg_get_cstr(cfg, sections[i], DS_CFG_KEY_FWDS);
+		// actions
+		cur = ds_cfg_get_cstr(cfg, sections[i], DS_CFG_KEY_ACTS);
 		parts = pfcq_split_string(cur, DS_CFG_LIST_DELIM, &nparts);
-		ret->fes[c_f].nfefwds = nparts;
-		ret->fes[c_f].fe_fwds = pfcq_alloc(ret->fes[c_f].nfefwds * sizeof(struct ds_fe_fwd*));
-		for (size_t j = 0; j < ret->fes[c_f].nfefwds; j++)
-		{
-			for (size_t k = 0; k < ret->nfwds; k++)
-			{
-				if (strncmp(parts[j], ret->fwds[k].name, strlen(parts[j])) != 0)
-					continue;
-
-				ret->fes[c_f].fe_fwds[j].fwd = &ret->fwds[k];
-				break;
-			}
-
-			if (!ret->fes[c_f].fe_fwds[j].fwd)
-			{
-				inform("%s\n", "Unable to assign forwarder. Consider checking config file.");
-				stop("Stopping.");
-			}
-		}
-
+		ret->fes[c_x].nacts = nparts;
+		ret->fes[c_x].acts = pfcq_alloc(ret->fes[c_x].nacts * sizeof(struct ds_act));
+		for (size_t j = 0, c_y = 0; j < ret->nacts; j++)
+			for (size_t k = 0; k < ret->fes[c_x].nacts; k++)
+				if (strncmp(ret->acts[j].name, parts[k], strlen(parts[k])) == 0)
+				{
+					ret->fes[c_x].acts[c_y] = ret->acts[j];
+					c_y++;
+				}
 		pfcq_free_split_string(parts, nparts);
 
-		verbose("[fe: %s] loaded\n", ret->fes[c_f].name);
+		verbose("[fe: %s] loaded\n", ret->fes[c_x].name);
 
-		c_f++;
+		c_x++;
 	}
 
 	ds_cfg_free_sections(sections);
@@ -458,10 +355,23 @@ void ds_ctx_unload(struct ds_ctx* _ctx)
 	for (size_t i = 0; i < _ctx->nfes; i++)
 	{
 		pfcq_free(_ctx->fes[i].name);
-		pfcq_free(_ctx->fes[i].fe_fwds);
-		pfcq_counter_reset(&_ctx->fes[i].c_fwd);
+		pfcq_free(_ctx->fes[i].acts);
 	}
 	pfcq_free(_ctx->fes);
+
+	for (size_t i = 0; i < _ctx->nacts; i++)
+	{
+		for (size_t j = 0; j < _ctx->acts[i].nact_items; j++)
+		{
+			pfcq_free(_ctx->acts[i].act_items[j].name);
+			pfcq_free(_ctx->acts[i].act_items[j].expr);
+			regfree(&_ctx->acts[i].act_items[j].regex);
+			pfcq_free(_ctx->acts[i].act_items[j].act_balance_fwds);
+		}
+		pfcq_free(_ctx->acts[i].act_items);
+		pfcq_free(_ctx->acts[i].name);
+	}
+	pfcq_free(_ctx->acts);
 
 	for (size_t i = 0; i < _ctx->nfwds; i++)
 	{
@@ -474,41 +384,6 @@ void ds_ctx_unload(struct ds_ctx* _ctx)
 
 	ds_close(_ctx->tk_fd);
 	pfcq_counter_reset(&_ctx->epoch);
-
-	for (size_t i = 0; i < _ctx->n_acl_subnets; i++)
-	{
-		for (size_t j = 0; j < _ctx->acl_subnets[i].nitems; j++)
-		{
-			pfcq_free(_ctx->acl_subnets[i].items[j].name);
-		}
-		pfcq_free(_ctx->acl_subnets[i].items);
-		pfcq_free(_ctx->acl_subnets[i].name);
-	}
-	pfcq_free(_ctx->acl_subnets);
-
-	for (size_t i = 0; i < _ctx->n_acl_reqs; i++)
-	{
-		for (size_t j = 0; j < _ctx->acl_reqs[i].nitems; j++)
-		{
-			pfcq_free(_ctx->acl_reqs[i].items[j].name);
-			pfcq_free(_ctx->acl_reqs[i].items[j].expr);
-			regfree(&_ctx->acl_reqs[i].items[j].regex);
-		}
-		pfcq_free(_ctx->acl_reqs[i].items);
-		pfcq_free(_ctx->acl_reqs[i].name);
-	}
-	pfcq_free(_ctx->acl_reqs);
-
-	for (size_t i = 0; i < _ctx->n_acl_acts; i++)
-	{
-		for (size_t j = 0; j < _ctx->acl_acts[i].nitems; j++)
-		{
-			pfcq_free(_ctx->acl_acts[i].items[j].name);
-		}
-		pfcq_free(_ctx->acl_acts[i].items);
-		pfcq_free(_ctx->acl_acts[i].name);
-	}
-	pfcq_free(_ctx->acl_acts);
 
 	pfcq_free(_ctx);
 }

@@ -25,5 +25,5 @@
 bool ds_tsk_buf_to_pkt(struct ds_wrk_tsk*) __attribute__((warn_unused_result));
 int ds_tsk_buf_parse(struct ds_wrk_ctx*, struct ds_wrk_tsk*,
 					 enum ds_pkt_type) __attribute__((warn_unused_result));
-void ds_tsk_get_fwd(struct ds_wrk_tsk*, struct rb_table*);
+void ds_tsk_get_fwd(struct ds_wrk_tsk*, struct rb_table*, struct ds_act_item*);
 

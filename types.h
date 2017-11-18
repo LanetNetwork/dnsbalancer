@@ -43,36 +43,17 @@ enum ds_tsk_type
 	DS_TSK_WDT,
 };
 
-enum ds_fwd_mode
+enum ds_act_type
 {
-	DS_FWD_UNK = 0,
-	DS_FWD_RR,
-	DS_FWD_STICKY,
+	DS_ACT_UNK = 0,
+	DS_ACT_BALANCE,
 };
 
-enum ds_acl_type
+enum ds_act_balance_type
 {
-	DS_ACL_UNK = 0,
-	DS_ACL_LOCAL,
-	DS_ACL_MYSQL,
-};
-
-enum ds_acl_req_fqdn_matcher
-{
-	DS_MATCHER_UNK = 0,
-	DS_MATCHER_STRICT,
-	DS_MATCHER_SUBDOMAINS,
-	DS_MATCHER_REGEX,
-};
-
-enum ds_acl_act_kind
-{
-	DS_ACTION_UNK = 0,
-	DS_ACTION_ACCEPT,
-	DS_ACTION_DROP,
-	DS_ACTION_NXDOMAIN,
-	DS_ACTION_SET_A,
-	// TODO: more to come?
+	DS_ACT_BALANCE_UNK = 0,
+	DS_ACT_BALANCE_RR,
+	DS_ACT_BALANCE_STICKY,
 };
 
 struct ds_wrk_tsk
@@ -96,70 +77,35 @@ struct ds_wrk_tsk
 	uint16_t orig_id;					// |
 	struct ds_fe_sk* orig_fe_sk;		// |
 	struct pfcq_net_addr orig_fe_addr;	// | value
-	struct ds_fe_fwd* fe_fwd;			// |
+	struct ds_fwd* fwd;					// |
 	struct pfcq_counter epoch;			// |
 	enum ds_tsk_type type;				// ]
 };
 
 TAILQ_HEAD(ds_wrk_tsk_list, ds_wrk_tsk);
 
-struct ds_acl
-{
-	char* name;
-	enum ds_acl_type type;
-	// TODO: struct/union for additional options
-	// like MySQL DB connection etc
-	struct ds_acl_subnet* subnets;
-	size_t n_subnets;
-	struct ds_acl_req* reqs;
-	size_t n_reqs;
-	struct ds_acl_act* acts;
-	size_t n_acts;
-};
-
-struct ds_acl_subnet_item
+struct ds_act_item
 {
 	char* name;
 	struct pfcq_net_addr addr;
 	struct pfcq_net_addr mask;
-};
-
-struct ds_acl_subnet
-{
-	char* name;
-	size_t nitems;
-	struct ds_acl_subnet_item* items;
-};
-
-struct ds_acl_req_item
-{
-	char* name;
 	ldns_rr_class rr_class;
 	ldns_rr_type rr_type;
-	enum ds_acl_req_fqdn_matcher matcher;
 	char* expr;
 	regex_t regex;
+	enum ds_act_type act_type;
+	// TODO:
+	enum ds_act_balance_type act_balance_type;
+	size_t act_balance_nfwds;
+	struct ds_fwd** act_balance_fwds;
+	struct pfcq_counter c_fwd;
 };
 
-struct ds_acl_req
+struct ds_act
 {
 	char* name;
-	size_t nitems;
-	struct ds_acl_req_item* items;
-};
-
-struct ds_acl_act_item
-{
-	char* name;
-	enum ds_acl_act_kind act;
-	// TODO: union for action parms
-};
-
-struct ds_acl_act
-{
-	char* name;
-	size_t nitems;
-	struct ds_acl_act_item* items;
+	size_t nact_items;
+	struct ds_act_item* act_items;
 };
 
 struct ds_fe
@@ -167,10 +113,8 @@ struct ds_fe
 	char* name;
 	struct pfcq_net_addr addr;
 	int dscp;
-	enum ds_fwd_mode fwd_mode;
-	struct ds_fe_fwd* fe_fwds;
-	size_t nfefwds;
-	struct pfcq_counter c_fwd;
+	size_t nacts;
+	struct ds_act* acts;
 };
 
 struct ds_fwd
@@ -198,11 +142,6 @@ struct ds_fe_sk
 struct ds_fwd_sk
 {
 	int sk;
-	struct ds_fwd* fwd;
-};
-
-struct ds_fe_fwd
-{
 	struct ds_fwd* fwd;
 };
 
@@ -245,13 +184,8 @@ struct ds_ctx
 	size_t nfes;
 	struct ds_fwd* fwds;
 	size_t nfwds;
-	size_t nacls;
-	size_t n_acl_subnets;
-	struct ds_acl_subnet* acl_subnets;
-	size_t n_acl_reqs;
-	struct ds_acl_req* acl_reqs;
-	size_t n_acl_acts;
-	struct ds_acl_act* acl_acts;
+	struct ds_act* acts;
+	size_t nacts;
 	int wdt_fd;
 	int tk_fd;
 	uint64_t req_ttl;
