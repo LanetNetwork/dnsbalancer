@@ -54,7 +54,7 @@ int ds_tsk_buf_parse(struct ds_wrk_ctx* _wrk_ctx, struct ds_wrk_tsk* _tsk, enum 
 			switch (_tsk->type)
 			{
 				case DS_TSK_REG:
-					fwd = _tsk->fe_fwd->fwd;
+					fwd = _tsk->fwd;
 					break;
 				case DS_TSK_WDT:
 					fwd = _tsk->fwd_sk->fwd;
@@ -79,33 +79,33 @@ int ds_tsk_buf_parse(struct ds_wrk_ctx* _wrk_ctx, struct ds_wrk_tsk* _tsk, enum 
 	return 0;
 }
 
-void ds_tsk_get_fwd(struct ds_wrk_tsk* _tsk, struct rb_table* _fwd_sk_set)
+void ds_tsk_get_fwd(struct ds_wrk_tsk* _tsk, struct rb_table* _fwd_sk_set, struct ds_act_item* _act_item)
 {
-	struct ds_fe_fwd* fe_fwd = NULL;
+	struct ds_fwd* fwd = NULL;
 	struct rb_traverser iter;
 	struct ds_fwd_sk* cur_fwd_sk = NULL;
 	size_t tries = 0;
 	size_t tip = 0;
 
-	switch (_tsk->orig_fe_sk->fe->fwd_mode)
+	switch (_act_item->act_balance_type)
 	{
-		case DS_FWD_RR:
-			while (likely(tries++ < _tsk->orig_fe_sk->fe->nfefwds))
+		case DS_ACT_BALANCE_RR:
+			while (likely(tries++ < _act_item->act_balance_nfwds))
 			{
-				int index = pfcq_counter_get_inc_mod(&_tsk->orig_fe_sk->fe->c_fwd,
-											   _tsk->orig_fe_sk->fe->nfefwds, 0);
-				fe_fwd = &_tsk->orig_fe_sk->fe->fe_fwds[index];
-				if (likely(fe_fwd->fwd->alive))
+				int index = pfcq_counter_get_inc_mod(&_act_item->c_fwd,
+											   _act_item->act_balance_nfwds, 0);
+				fwd = _act_item->act_balance_fwds[index];
+				if (likely(fwd->alive))
 					break;
 			}
 			break;
-		case DS_FWD_STICKY:
-			tip = (size_t)(ds_hash_address(&_tsk->addr) % _tsk->orig_fe_sk->fe->nfefwds);
-			while (likely(tries++ < _tsk->orig_fe_sk->fe->nfefwds))
+		case DS_ACT_BALANCE_STICKY:
+			tip = (size_t)(ds_hash_address(&_tsk->addr) % _act_item->act_balance_nfwds);
+			while (likely(tries++ < _act_item->act_balance_nfwds))
 			{
-				int index = tip++ % _tsk->orig_fe_sk->fe->nfefwds;
-				fe_fwd = &_tsk->orig_fe_sk->fe->fe_fwds[index];
-				if (likely(fe_fwd->fwd->alive))
+				int index = tip++ % _act_item->act_balance_nfwds;
+				fwd = _act_item->act_balance_fwds[index];
+				if (likely(fwd->alive))
 					break;
 			}
 			break;
@@ -114,20 +114,23 @@ void ds_tsk_get_fwd(struct ds_wrk_tsk* _tsk, struct rb_table* _fwd_sk_set)
 			break;
 	}
 
-	if (!fe_fwd)
+	if (unlikely(!fwd))
 		return;
-
-	_tsk->fe_fwd = fe_fwd;
 
 	rb_t_init(&iter, _fwd_sk_set);
 	cur_fwd_sk = rb_t_first(&iter, _fwd_sk_set);
 	do {
-		if (cur_fwd_sk->fwd == _tsk->fe_fwd->fwd)
+		if (cur_fwd_sk->fwd == fwd)
 		{
 			_tsk->fwd_sk = cur_fwd_sk;
 			break;
 		}
 	} while (likely((cur_fwd_sk = rb_t_next(&iter)) != NULL));
+
+	if (unlikely(!_tsk->fwd_sk))
+		return;
+
+	_tsk->fwd = fwd;
 	_tsk->fwd_sk_addr = _tsk->fwd_sk->fwd->addr;
 
 	return;

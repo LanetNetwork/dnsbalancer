@@ -384,11 +384,11 @@ void ds_bind(int _socket, const struct pfcq_net_addr* _address)
 	switch (_address->family)
 	{
 		case AF_INET:
-			if (unlikely(bind(_socket, &_address->addr.ip4, (socklen_t)sizeof(struct sockaddr_in)) == -1))
+			if (unlikely(bind(_socket, (const struct sockaddr*)&_address->addr.ip4, (socklen_t)sizeof(struct sockaddr_in)) == -1))
 				panic("bind");
 			break;
 		case AF_INET6:
-			if (unlikely(bind(_socket, &_address->addr.ip6, (socklen_t)sizeof(struct sockaddr_in6)) == -1))
+			if (unlikely(bind(_socket, (const struct sockaddr*)&_address->addr.ip6, (socklen_t)sizeof(struct sockaddr_in6)) == -1))
 				panic("bind");
 			break;
 		default:
@@ -404,11 +404,11 @@ void ds_connect(int _socket, const struct pfcq_net_addr* _address)
 	switch (_address->family)
 	{
 		case AF_INET:
-			if (unlikely(connect(_socket, &_address->addr.ip4, (socklen_t)sizeof(struct sockaddr_in)) == -1))
+			if (unlikely(connect(_socket, (const struct sockaddr*)&_address->addr.ip4, (socklen_t)sizeof(struct sockaddr_in)) == -1))
 				panic("connect");
 			break;
 		case AF_INET6:
-			if (unlikely(connect(_socket, &_address->addr.ip6, (socklen_t)sizeof(struct sockaddr_in6)) == -1))
+			if (unlikely(connect(_socket, (const struct sockaddr*)&_address->addr.ip6, (socklen_t)sizeof(struct sockaddr_in6)) == -1))
 				panic("connect");
 			break;
 		default:

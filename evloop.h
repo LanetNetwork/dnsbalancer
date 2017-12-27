@@ -22,6 +22,6 @@
 
 #include "types.h"
 
-int ds_wrk_loop_handler(struct epoll_event _event, struct ds_wrk_ctx* _data);
-void ds_loop(ds_loop_handler_fn_t _handler, struct ds_wrk_ctx* _data);
+int ds_wrk_loop_handler(struct epoll_event, struct ds_wrk_ctx*);
+void ds_loop(ds_loop_handler_fn_t, struct ds_wrk_ctx*);
 

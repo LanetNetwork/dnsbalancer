@@ -22,5 +22,5 @@
 
 #include "types.h"
 
-void* ds_wrk(void* _data);
+void* ds_wrk(void*);
 

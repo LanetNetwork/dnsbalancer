@@ -29,10 +29,9 @@
 #include <stddef.h>
 
 /* Function types. */
-typedef int rb_comparison_func(const void *rb_a, const void *rb_b,
-			       void *rb_param);
-typedef void rb_item_func(void *rb_item, void *rb_param);
-typedef void *rb_copy_func(void *rb_item, void *rb_param);
+typedef int rb_comparison_func(const void *, const void *, void *);
+typedef void rb_item_func(void *, void *);
+typedef void *rb_copy_func(void *, void *);
 
 #ifndef LIBAVL_ALLOCATOR
 #define LIBAVL_ALLOCATOR

@@ -22,6 +22,6 @@
 
 #include "types.h"
 
-struct ds_ctx* ds_ctx_load(const char* _config_file) __attribute__((warn_unused_result));
-void ds_ctx_unload(struct ds_ctx* _ctx);
+struct ds_ctx* ds_ctx_load(const char*) __attribute__((warn_unused_result));
+void ds_ctx_unload(struct ds_ctx*);
 
